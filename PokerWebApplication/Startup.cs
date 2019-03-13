@@ -19,6 +19,7 @@ using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
 using PokerWebAppDAL.Data;
 using PokerWebAppDAL.Models;
+using PokerWebApplication.Hubs;
 
 namespace PokerWebApplication
 {
@@ -93,6 +94,8 @@ namespace PokerWebApplication
                     };
                 });
 
+            services.AddSignalR();
+
             services.AddCors(options =>
             {
                 options.AddPolicy("AllowAllPolicy",
@@ -132,7 +135,17 @@ namespace PokerWebApplication
 
             app.UseCors("AllowAllPolicy");
 
+            app.UseSignalR(options =>
+            {
+                options.MapHub<GameHub>("/game");
+               
+            });
+
             app.UseMvc();
+
+
+
+
         }
 
 
