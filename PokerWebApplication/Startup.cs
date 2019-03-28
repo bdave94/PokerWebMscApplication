@@ -17,8 +17,8 @@ using Microsoft.Extensions.DependencyInjection;
 using Microsoft.Extensions.Logging;
 using Microsoft.Extensions.Options;
 using Microsoft.IdentityModel.Tokens;
-using PokerWebAppDAL.Data;
-using PokerWebAppDAL.Models;
+using PokerWebApp.DAL.Data;
+using PokerWebApp.DAL.Models;
 using PokerWebApplication.Hubs;
 
 namespace PokerWebApplication
@@ -35,7 +35,7 @@ namespace PokerWebApplication
         // This method gets called by the runtime. Use this method to add services to the container.
         public void ConfigureServices(IServiceCollection services)
         {
-
+            
             //add this: register your db context
             services.AddDbContext<PokerWebAppDALContext>(options =>
                 options.UseSqlServer(

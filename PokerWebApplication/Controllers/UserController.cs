@@ -3,8 +3,8 @@ using Microsoft.AspNetCore.Identity;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.Extensions.Configuration;
 using Microsoft.IdentityModel.Tokens;
-using PokerWebAppDAL.Data;
-using PokerWebAppDAL.Models;
+using PokerWebApp.DAL.Models;
+using PokerWebApp.DAL.Manager;
 using PokerWebApplication.Model;
 using System;
 using System.Collections.Generic;
@@ -24,17 +24,18 @@ namespace PokerWebApplication.Controllers
         private UserManager<PokerAppUser> _userManager = null;
         private SignInManager<PokerAppUser> _signInManager = null;
         private readonly IConfiguration _configuration = null;
-        private PokerWebAppDALContext _appDbContext = null;
+        
 
         public UserController(
             UserManager<PokerAppUser> userManager,
-            SignInManager<PokerAppUser> signInManager, IConfiguration configuration,
-            PokerWebAppDALContext appDbContext)
+            SignInManager<PokerAppUser> signInManager, 
+            IConfiguration configuration
+             )
         {
             _userManager = userManager;
             _signInManager = signInManager;
             _configuration = configuration;
-            _appDbContext = appDbContext;
+            
         }
 
 
@@ -47,30 +48,24 @@ namespace PokerWebApplication.Controllers
             {
                 UserName = model.Username,
                 Email = model.Email,
-                Money = 1000                    
+                Money = 1000,              
             };
 
             var result = await _userManager.CreateAsync(user, model.Password);
 
             if (result.Succeeded)
             {
+                
+                PokerAppDBManager manager = new PokerAppDBManager();
                
-                await _appDbContext.Statistics.AddAsync(new Statistics { UserId = user.Id, TotalGamesPlayed=0,TotalWins=0 });
-                await _appDbContext.SaveChangesAsync();
-
+                await manager.InsertNewUserAsync(user);
+                
                 return new OkObjectResult(new string[] { "User Successfuly created!" });
                
-
             }
             else
             {
-                string desc = " ";
-                var firstError = result.Errors.First();
-               
-                desc = firstError.Description;
-
-                return  BadRequest(desc);
-
+                return  BadRequest(result.Errors.First().Description);
             }
         }
 
@@ -85,7 +80,7 @@ namespace PokerWebApplication.Controllers
             {
                 var appUser = _userManager.Users.SingleOrDefault(r => r.UserName == model.Username);
 
-                var token = await GenerateJwtToken(model.Username, appUser);
+                var token =  GenerateJwtToken(model.Username, appUser);
                 
                 return  new LoginResponse() { Auth_Token =  token };
             }
@@ -99,18 +94,20 @@ namespace PokerWebApplication.Controllers
 
         [Authorize]
         [HttpGet("profile")]
-        public async Task<object> Protected()
+        public async Task<ProfileInfo> Protected()
         {
-            var username = User.Identity.Name;
-            var appUser = _userManager.Users.SingleOrDefault(r => r.UserName == username);
-            var userStatistics = _appDbContext.Statistics.SingleOrDefault(s => s.UserId == appUser.Id);
-            return new ProfileInfo() { UserName= username, Money = appUser.Money,
-                GamesPlayed =userStatistics.TotalGamesPlayed,
-                TotalWins = userStatistics.TotalWins }; 
+            var appUser = await _userManager.FindByNameAsync(User.Identity.Name);
+            PokerAppDBManager manager = new PokerAppDBManager();
+            Statistics st = await manager.GetStatisticsAsync(appUser);
+
+            return new ProfileInfo() { UserName= appUser.UserName,
+                Money = appUser.Money,
+                GamesPlayed = st.TotalGamesPlayed,
+                TotalWins = st.TotalWins }; 
         }
 
 
-        private async Task<string> GenerateJwtToken(string username, IdentityUser user)
+        private string GenerateJwtToken(string username, IdentityUser user)
         {
             var claims = new List<Claim>
             {

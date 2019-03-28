@@ -3,6 +3,7 @@ using PokerWebApplication.Game;
 using System;
 using System.Collections.Generic;
 using System.Linq;
+using System.Threading;
 using System.Threading.Tasks;
 
 namespace PokerWebApplication.Hubs
@@ -11,41 +12,34 @@ namespace PokerWebApplication.Hubs
     {
         public static List<Table> Tables = new List<Table>();
         private const int NumberOfSeats = 2;
-        public GameHub()
-        {
-            Table t = new Table();
-            t.id = 1;
-            Tables.Add(t);
-        }
+        
 
         public async Task AddPlayer(string username)
         {
-            //await Clients.All.SendAsync("messageReceived", message);
-            int tableMostPlayerIndex = -1;
-            int tableHighestPlayers = -1;
-            for (int i = 0; i < Tables.Count; i++) 
+            if (Tables.Count == 0)
             {
-              
-
-                if(Tables[i].NumberOfPlayers() > tableHighestPlayers &&
-                    Tables[i].NumberOfPlayers() != NumberOfSeats)
-                {
-                    tableHighestPlayers = Tables[i].NumberOfPlayers();
-                    tableMostPlayerIndex = i;
-                }
-
-
+                Tables.Add(new Table { id = 1 });
             }
 
-            Tables[tableMostPlayerIndex].AddNewPlayer(username);
+
+            int tableMostPlayerIndex = FindTableWithMostPlayers();
+            
+            string message; 
            
-            string message = Tables[tableMostPlayerIndex].id.ToString();
+            if(tableMostPlayerIndex != -1)
+            {
+                Tables[tableMostPlayerIndex].AddNewPlayer(username);
+                message = Tables[tableMostPlayerIndex].id.ToString();
+            } else
+            {
+                message = "full";
+            }
             await Clients.Caller.SendAsync("queueResult", message);
         }
 
-        public async Task GetTableInfo(string tableId )
+        public async Task GetTableInfo(int tableId )
         {
-            List<Player> players = getTablebyId(tableId).GetPlayers();
+            List<Player> players = GetTablebyId(tableId).GetPlayers();
            
            
             await Clients.All.SendAsync("getInfo", players);
@@ -56,22 +50,29 @@ namespace PokerWebApplication.Hubs
             await Clients.All.SendAsync("messageReceived", username, message);
         }
 
-        private Table getTablebyId(string tableID)
+        private Table GetTablebyId(int tableID)
         {
-            int id = int.Parse(tableID);
-            Table result = null;
-            foreach(Table t in Tables)
-            {
-                if (t.id == id)
-                {
-                    result = t;
-                    break;
-                }
-                   
-            }
-            return result;
-
+            return Tables.SingleOrDefault(t => t.id == tableID);
         }
 
+
+        private int FindTableWithMostPlayers()
+        {
+            int tableMostPlayerIndex = -1;
+            int tableHighestPlayers = -1;
+            for (int i = 0; i < Tables.Count; i++)
+            {
+                if (Tables[i].NumberOfPlayers() > tableHighestPlayers &&
+                    Tables[i].NumberOfPlayers() != NumberOfSeats)
+                {
+                    tableHighestPlayers = Tables[i].NumberOfPlayers();
+                    tableMostPlayerIndex = i;
+                }
+
+            }
+
+            return tableMostPlayerIndex;
+
+        }
     }
 }
