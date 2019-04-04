@@ -11,8 +11,10 @@ namespace PokerWebApplication.Hubs
     public class GameHub:Hub
     {
         public static List<Table> Tables = new List<Table>();
-        private const int NumberOfSeats = 2;
-        
+        private const int NumberOfSeats = 3;
+
+        public static List<string> Connections = new List<string>();
+
 
         public async Task AddPlayer(string username)
         {
@@ -28,13 +30,39 @@ namespace PokerWebApplication.Hubs
            
             if(tableMostPlayerIndex != -1)
             {
-                Tables[tableMostPlayerIndex].AddNewPlayer(username);
+                Tables[tableMostPlayerIndex].AddNewPlayer(username, Context.ConnectionId);
+               
                 message = Tables[tableMostPlayerIndex].id.ToString();
             } else
             {
                 message = "full";
             }
             await Clients.Caller.SendAsync("queueResult", message);
+
+            if(tableMostPlayerIndex != -1)
+            {
+                await GetTableInfo(Tables[tableMostPlayerIndex].id);
+                if (Tables[tableMostPlayerIndex].Players.Count == NumberOfSeats)
+                {   
+
+                    await StartGameAsync(Tables[tableMostPlayerIndex]);
+                }
+            }
+            
+        }
+        
+
+        public async Task StartGameAsync(Table table)
+        {
+            
+            GameManager g = new GameManager(table.Players, this, table.id);
+            await g.StartGameAsync();
+        }
+
+        public async Task DeactivateAllIndicatorAsync(int tableId)
+        {
+            await Clients.All.SendAsync("DeactivateAllIndicator");
+
         }
 
         public async Task GetTableInfo(int tableId )
@@ -44,6 +72,8 @@ namespace PokerWebApplication.Hubs
            
             await Clients.All.SendAsync("getInfo", players);
         }
+
+        
 
         public async Task NewMessage(string username, string message)
         {
@@ -73,6 +103,41 @@ namespace PokerWebApplication.Hubs
 
             return tableMostPlayerIndex;
 
+        }
+
+        public void ActivateBigBlindIndicator(string playerName)
+        {
+            Clients.All.SendAsync("ActivateBigBlindIndicator", playerName);
+        }
+
+        public void ActivateSmallBlindIndicator(string playerName)
+        {
+            Clients.All.SendAsync("ActivateSmallBlindLabel", playerName);
+        }
+
+        public void ActivateDealerIndicator(string playerName)
+        {
+            Clients.All.SendAsync("ActivateDealerIndicator", playerName);
+            
+        }
+
+        public void ShowPlayerCards(string connectionId, List<Card> hand)
+        {
+            Clients.Client(connectionId).SendAsync("ShowPlayerCards", hand);
+                
+        }
+
+        public async Task PlayerCall(int playerPosition, int tableID, int callValue)
+        {
+            GetTablebyId(tableID).Players[playerPosition].CallValue = callValue;
+
+            await Clients.Caller.SendAsync("PlayerCall", "callMessageRecieved");
+
+        }
+
+        public void ResetClientCardPictures()
+        {
+            Clients.All.SendAsync("ResetClientCardPictures");
         }
     }
 }

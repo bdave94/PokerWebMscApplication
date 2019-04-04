@@ -15,12 +15,13 @@ namespace PokerWebApplication.Game
 
         }
 
-        public void AddNewPlayer(string name)
+        public void AddNewPlayer(string name, string connectionId)
         {
             Player p = new Player();
-            p.name = name;
-            p.tablePosition = Players.Count;
-            p.chips = 500;
+            p.Name = name;
+            p.TablePosition = Players.Count;
+            p.Chips = 500;
+            p.ConnectionId = connectionId;
             Players.Add(p);
 
         }

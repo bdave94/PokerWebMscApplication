@@ -19,7 +19,7 @@ namespace PokerWebApp.DAL.Manager
                 "Server=(localdb)\\mssqllocaldb;Database=PokerWebAppDAL;Trusted_Connection=True;MultipleActiveResultSets=true").Options);
 
 
-            Statistics s = new Statistics { PokerAppUserId = user.Id, TotalGamesPlayed = 10, TotalWins = 10 };
+            Statistics s = new Statistics { PokerAppUserId = user.Id, TotalGamesPlayed = 0, TotalWins = 0 };
            
             await appDbContext.Statistics.AddAsync(s);
             await appDbContext.SaveChangesAsync();
