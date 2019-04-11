@@ -1,4 +1,6 @@
-﻿using System;
+﻿using Microsoft.AspNetCore.SignalR;
+using PokerWebApplication.Hubs;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -9,20 +11,27 @@ namespace PokerWebApplication.Game
     {
         public int id { get; set; }
         public List<Player> Players= new List<Player>();
+        public GameManager Game { get; private set; }
 
         public Table()
         {
 
         }
 
-        public void AddNewPlayer(string name, string connectionId)
+        public int AddNewPlayer(string name, string connectionId)
         {
-            Player p = new Player();
-            p.Name = name;
-            p.TablePosition = Players.Count;
-            p.Chips = 500;
-            p.ConnectionId = connectionId;
+            int tablePosition = Players.Count;
+            Player p = new Player
+            {
+                Name = name,
+                TablePosition = tablePosition,
+                Chips = 500,
+                ConnectionId = connectionId
+            };
+
             Players.Add(p);
+            return tablePosition;
+
 
         }
 
@@ -36,5 +45,29 @@ namespace PokerWebApplication.Game
         {
             return Players.Count();
         }
+
+        public void InitGame()
+        {
+            Game = new GameManager(this.Players, this.id);
+        }
+
+        public async Task startGameAsync()
+        {
+            await Game.StartGameAsync();
+        }
+
+        
+
+        
+
+
+        public async Task NextPlayerActionAsync(string action)
+        {
+            await Game.NextPlayerActionAsync(action);
+        }
+
+
+
+
     }
 }

@@ -1,4 +1,5 @@
-﻿using PokerWebApplication.Hubs;
+﻿using Microsoft.AspNetCore.SignalR;
+using PokerWebApplication.Hubs;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -9,6 +10,10 @@ namespace PokerWebApplication.Game
 {
     public class GameManager
     {
+
+        public bool DeactivateAllIndicatorRequired { get; set; }
+
+
         private List<Player> players = new List<Player>();
 
        
@@ -21,116 +26,149 @@ namespace PokerWebApplication.Game
 
         private int dealerNum = 0;
 
-        private GameHub hub;
+        
 
         private int tableId;
 
-        public GameManager(List<Player> PlayerList, GameHub hub, int tableID )
+
+        public List<Player> activePlayers = new List<Player>();
+
+        public string Dealer { get; set; }
+        public string SmallBlind { get; set; }
+        public string BigBlind { get; set; }
+
+        public int GamePhase { get; set; }
+
+
+        public string CurrentPlayer { get; set; }
+        public int CurrentPlayerPos { get; private set; }
+
+        private int nextPlayerPosition;
+
+        private bool askFirstPlayerInPhase;
+
+        public bool ReadyForNextRound { get; private set; }
+
+        public bool ReadyForNextPhase { get; private set; }
+
+        public GameManager(List<Player> PlayerList,  int tableID)
         {
+           
+
             players = PlayerList;
-            this.hub = hub;
+           
             tableId = tableID;
+
+            DeactivateAllIndicatorRequired = false;
+
+            dealerNum = 0;
+
+            ReadyForNextPhase = false;
+            ReadyForNextRound = false;
         }
+
+
+        public void StartNextRound()
+        {
+            ReadyForNextPhase = false;
+            ReadyForNextRound = false;
+
+            d.ResetDeck();
+            dealerNum += 1;
+
+            if (dealerNum >= activePlayers.Count)
+                dealerNum = 0;
+
+            activePlayers.Clear();
+            for (int z = 0; z < players.Count; z++)
+            {
+                activePlayers.Add(players[z]);
+
+                activePlayers[z].ClearHand();
+                activePlayers[z].SmallBlind = false;
+                activePlayers[z].BigBlind = false;
+                activePlayers[z].Dealer = false;
+                activePlayers[z].PlayersTurn = false;
+            }
+
+            //clear table hand
+            TableHand.Clear();
+        }
+
+
+
+
+
 
         public async Task StartGameAsync()
         {
-            dealerNum = 0;
-            List<Player> activePlayers = new List<Player>();
+            
+            
 
             //play rounds of poker
             for (int i = 0; i < 3; i++)
             {
 
-
-                if (dealerNum >= activePlayers.Count)
-                    dealerNum = 0;
-
-
-                activePlayers.Clear();
-                for (int z = 0; z < players.Count; z++)
-                {
-                    activePlayers.Add(players[z]);
-
-                    activePlayers[z].ClearHand();
-                    activePlayers[z].SmallBlind = false;
-                    activePlayers[z].BigBlind = false;
-                }
-
-                //reset blinds and dealer label backcolor
-                await hub.DeactivateAllIndicatorAsync(tableId);
-
-                //clear table hand
-                TableHand.Clear();
-
-
-                //get small blinds big blinds
-                GetBlinds(dealerNum, activePlayers);
-                //give two cards for players
-                GiveCards(dealerNum, activePlayers);
-
-               
-
-                //ask if players want to play with their cards
-                GetRemainingPlayersFlop(dealerNum, activePlayers);
-
-                hub.ResetClientCardPictures();
-                d.ResetDeck();
-
-                dealerNum += 1;
+                /* hub.ResetClientCardPictures();
+                
+                 */
             }
 
         }
 
-       
+        internal Task NextPlayerActionAsync(string action)
+        {
+            throw new NotImplementedException();
+        }
 
-        private void GetBlinds(int dealerNum, List<Player> activePlayers)
+        public void GetBlinds()
         {
             if (dealerNum < activePlayers.Count - 2)
             {
                 activePlayers[dealerNum].Dealer = true;
-                hub.ActivateDealerIndicator(activePlayers[dealerNum ].Name);
+               
 
 
                 activePlayers[dealerNum + 1].SmallBlind = true;
 
-                hub.ActivateSmallBlindIndicator(activePlayers[dealerNum + 1].Name);
+                SmallBlind = activePlayers[dealerNum + 1].Name;
 
            
 
                 activePlayers[dealerNum + 2].BigBlind = true;
-                hub.ActivateBigBlindIndicator(activePlayers[dealerNum + 2].Name);
+                BigBlind = activePlayers[dealerNum + 2].Name;
 
             }
 
             if (dealerNum == activePlayers.Count - 2)
             {
                 activePlayers[dealerNum].Dealer = true;
-                hub.ActivateDealerIndicator(activePlayers[dealerNum].Name);
+                Dealer = activePlayers[dealerNum].Name;
 
                 activePlayers[dealerNum + 1].SmallBlind = true;
-                hub.ActivateSmallBlindIndicator(activePlayers[dealerNum + 1].Name);
+                SmallBlind = activePlayers[dealerNum + 1].Name;
 
 
                 activePlayers[0].BigBlind = true;
-                hub.ActivateBigBlindIndicator(activePlayers[0].Name);
+                BigBlind = activePlayers[0].Name;
                
             }
 
             if (dealerNum == activePlayers.Count - 1)
             {
                 activePlayers[dealerNum].Dealer = true;
-                hub.ActivateDealerIndicator(activePlayers[dealerNum].Name);
+                Dealer = activePlayers[dealerNum].Name;
 
                 activePlayers[0].SmallBlind = true;
-                hub.ActivateSmallBlindIndicator(activePlayers[0].Name);
+                SmallBlind = activePlayers[0].Name;
 
                 activePlayers[1].BigBlind = true;
-                hub.ActivateBigBlindIndicator(activePlayers[1].Name);
+                BigBlind = activePlayers[1].Name;
 
             }
         }
 
-        private void GiveCards(int dealerNum, List<Player> activePlayers)
+        public void GiveCards()
         {
            
            for (int j = dealerNum+1; j < activePlayers.Count; j++)
@@ -138,7 +176,7 @@ namespace PokerWebApplication.Game
                 activePlayers[j].AddCardHand(d.DrawCard());
                 activePlayers[j].AddCardHand(d.DrawCard());
 
-                hub.ShowPlayerCards(activePlayers[j].ConnectionId, activePlayers[j].Hand);
+              
                     
            }
 
@@ -148,13 +186,14 @@ namespace PokerWebApplication.Game
                 activePlayers[j].AddCardHand(d.DrawCard());
                 activePlayers[j].AddCardHand(d.DrawCard());
 
-                hub.ShowPlayerCards(activePlayers[j].ConnectionId, activePlayers[j].Hand);
+                
            }
-            
+
+            askFirstPlayerInPhase = true;
         }
 
 
-
+        //ask if players want to play with their cards
         public void GetRemainingPlayersFlop(int dealerNum, List<Player> activePlayers)
         {
             for (int i = dealerNum+1; i < activePlayers.Count; i++)
@@ -170,6 +209,103 @@ namespace PokerWebApplication.Game
             }
 
         }
+
+
+        public void GetCurrentPlayerAction()
+        {
+
+            foreach(Player p in activePlayers)
+            {
+                p.PlayersTurn = false;
+            }
+
+            if (askFirstPlayerInPhase)
+            {
+                askFirstPlayerInPhase = false;
+                if(dealerNum + 1 < activePlayers.Count)
+                {
+                   
+                    CurrentPlayer = activePlayers[dealerNum + 1].Name;
+
+                    activePlayers[dealerNum + 1].PlayersTurn = true;
+
+                    CurrentPlayerPos = dealerNum + 1;
+                    nextPlayerPosition = dealerNum + 2;
+
+                    if (nextPlayerPosition == activePlayers.Count)
+                    {
+                        nextPlayerPosition = 0;
+                    }
+
+                }  else
+                {
+                    nextPlayerPosition = 1;
+                    CurrentPlayer = activePlayers[0].Name;
+                    activePlayers[0].PlayersTurn = true;
+                    CurrentPlayerPos = 0;
+                }
+              
+
+            } else
+            {
+                if(nextPlayerPosition == dealerNum)
+                {
+                   
+                    CurrentPlayer = activePlayers[nextPlayerPosition].Name;
+                    activePlayers[nextPlayerPosition].PlayersTurn = true;
+                    askFirstPlayerInPhase = true;
+
+                    //ReadyForNextPhase = true;
+                    ReadyForNextRound = true;
+
+                } else
+                {
+
+                    CurrentPlayerPos = nextPlayerPosition;
+                    CurrentPlayer = activePlayers[nextPlayerPosition].Name;
+                    activePlayers[nextPlayerPosition].PlayersTurn = true;
+                    nextPlayerPosition += 1;
+
+                    if (nextPlayerPosition == activePlayers.Count)
+                    {
+                        nextPlayerPosition = 0;
+                    }
+                    
+                }
+ 
+            }
+
+        }
+
+      
+
+        public void ProcessPlayerAction(string playerAction)
+        {
+
+            if(playerAction.Equals("Call"))
+            {
+
+            }
+
+        }
+
+
+        private void StartNextPhase()
+        {
+           
+
+
+        }
+
+
+        private void FinishRound()
+        {
+
+
+
+        }
+
+
 
     }
 }

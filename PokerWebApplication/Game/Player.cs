@@ -20,11 +20,17 @@ namespace PokerWebApplication.Game
         {
             Hand = new List<Card>();
             CallValue = -1;
+
+            Dealer = false;
+            BigBlind = false;
+            SmallBlind = false;
+            PlayersTurn = false;
         }
 
         public bool Dealer { get; set; }
         public bool BigBlind { get; set; }
         public bool SmallBlind { get; set; }
+        public bool PlayersTurn { get; set; }
         public string ConnectionId { get; internal set; }
 
         public void ClearHand()

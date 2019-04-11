@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.SignalR;
 using PokerWebApplication.Game;
+using PokerWebApplication.Model;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -14,6 +15,8 @@ namespace PokerWebApplication.Hubs
         private const int NumberOfSeats = 3;
 
         public static List<string> Connections = new List<string>();
+
+        public static Dictionary<Guid, UserInGameInfo> usersInGame = new Dictionary<Guid, UserInGameInfo>();
 
 
         public async Task AddPlayer(string username)
@@ -30,9 +33,16 @@ namespace PokerWebApplication.Hubs
            
             if(tableMostPlayerIndex != -1)
             {
-                Tables[tableMostPlayerIndex].AddNewPlayer(username, Context.ConnectionId);
+                int tablePosition = Tables[tableMostPlayerIndex].AddNewPlayer(username, Context.ConnectionId);
                
-                message = Tables[tableMostPlayerIndex].id.ToString();
+               
+
+                Guid gameId = Guid.NewGuid();
+                usersInGame.Add(gameId, new UserInGameInfo() {ConnectionID = Context.ConnectionId, TableId= Tables[tableMostPlayerIndex].id,
+                    TablePosition= tablePosition});
+
+                message = Tables[tableMostPlayerIndex].id + "@" + tablePosition+"@"+ gameId.ToString();
+
             } else
             {
                 message = "full";
@@ -43,41 +53,85 @@ namespace PokerWebApplication.Hubs
             {
                 await GetTableInfo(Tables[tableMostPlayerIndex].id);
                 if (Tables[tableMostPlayerIndex].Players.Count == NumberOfSeats)
-                {   
+                {
 
                     await StartGameAsync(Tables[tableMostPlayerIndex]);
+                    
                 }
             }
             
         }
-        
 
         public async Task StartGameAsync(Table table)
         {
-            
-            GameManager g = new GameManager(table.Players, this, table.id);
-            await g.StartGameAsync();
+
+            table.InitGame();
+
+            await NewRound(table);
+ 
+
         }
 
-        public async Task DeactivateAllIndicatorAsync(int tableId)
+        public async Task NewRound(Table table)
         {
-            await Clients.All.SendAsync("DeactivateAllIndicator");
+            table.Game.StartNextRound();
+          
+            ResetClientCardPictures();
+
+            table.Game.GetBlinds();
+           
+
+            await this.GetTableInfo(table.id);
+
+            table.Game.GiveCards();
+
+            foreach (Player player in table.Game.activePlayers)
+            {
+                ShowPlayerCards(player.ConnectionId, player.Hand);
+            }
+
+            table.Game.GetCurrentPlayerAction();
+            await NewGameLogMessage("New round started");
+            await NewGameLogMessage(table.Game.CurrentPlayer + " 's turn");
+
+            await this.GetTableInfo(table.id);
+
 
         }
+ 
 
         public async Task GetTableInfo(int tableId )
         {
             List<Player> players = GetTablebyId(tableId).GetPlayers();
+
            
-           
-            await Clients.All.SendAsync("getInfo", players);
+            List<PlayerInfo> playerInfo = new List<PlayerInfo>();
+
+                foreach (Player p in players)
+                {
+                    playerInfo.Add(new PlayerInfo()
+                    {
+                        Chips = p.Chips,
+                        Name = p.Name,
+                        TablePosition = p.TablePosition,
+                        Dealer = p.Dealer,
+                        BigBlind = p.BigBlind,
+                        SmallBlind = p.SmallBlind,
+                        PlayersTurn = p.PlayersTurn
+                    });
+                }
+
+                await Clients.All.SendAsync("getInfo", players);
+            
+            
         }
 
         
 
-        public async Task NewMessage(string username, string message)
+        public async Task NewGameLogMessage(string message)
         {
-            await Clients.All.SendAsync("messageReceived", username, message);
+           
+            await Clients.All.SendAsync("messageReceived",  message);
         }
 
         private Table GetTablebyId(int tableID)
@@ -105,21 +159,7 @@ namespace PokerWebApplication.Hubs
 
         }
 
-        public void ActivateBigBlindIndicator(string playerName)
-        {
-            Clients.All.SendAsync("ActivateBigBlindIndicator", playerName);
-        }
-
-        public void ActivateSmallBlindIndicator(string playerName)
-        {
-            Clients.All.SendAsync("ActivateSmallBlindLabel", playerName);
-        }
-
-        public void ActivateDealerIndicator(string playerName)
-        {
-            Clients.All.SendAsync("ActivateDealerIndicator", playerName);
-            
-        }
+      
 
         public void ShowPlayerCards(string connectionId, List<Card> hand)
         {
@@ -127,11 +167,25 @@ namespace PokerWebApplication.Hubs
                 
         }
 
-        public async Task PlayerCall(int playerPosition, int tableID, int callValue)
+        public async Task PlayerAction(int playerPosition, int tableID, string action)
         {
-            GetTablebyId(tableID).Players[playerPosition].CallValue = callValue;
 
-            await Clients.Caller.SendAsync("PlayerCall", "callMessageRecieved");
+
+            GetTablebyId(tableID).Game.ProcessPlayerAction(action);
+
+            if (GetTablebyId(tableID).Game.ReadyForNextRound)
+            {
+                await this.NewRound(GetTablebyId(tableID));
+            } else
+            {
+                GetTablebyId(tableID).Game.GetCurrentPlayerAction();
+
+                await NewGameLogMessage(GetTablebyId(tableID).Game.CurrentPlayer + " 's turn");
+                await this.GetTableInfo(tableID);
+
+            }
+
+          
 
         }
 
@@ -139,5 +193,17 @@ namespace PokerWebApplication.Hubs
         {
             Clients.All.SendAsync("ResetClientCardPictures");
         }
+
+
+        public async Task RefreshGame(string gameId)
+        {
+            Guid gameid = Guid.Parse(gameId);
+            UserInGameInfo info;
+            usersInGame.TryGetValue(gameid, out info);
+            ShowPlayerCards(Context.ConnectionId, this.GetTablebyId(info.TableId).Players[info.TablePosition].Hand);
+            await Clients.Caller.SendAsync("RefreshGameUserInfo", info.TableId, info.TablePosition);
+        }
+
+
     }
 }
