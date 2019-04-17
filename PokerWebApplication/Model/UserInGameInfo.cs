@@ -7,7 +7,7 @@ namespace PokerWebApplication.Model
 {
     public class UserInGameInfo
     {
-        public string ConnectionID { get; set; }
+        
         public int TableId { get; set; }
         public int TablePosition { get; set; }
  

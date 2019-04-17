@@ -51,20 +51,9 @@ namespace PokerWebApplication.Game
             Game = new GameManager(this.Players, this.id);
         }
 
-        public async Task startGameAsync()
-        {
-            await Game.StartGameAsync();
-        }
-
         
 
-        
-
-
-        public async Task NextPlayerActionAsync(string action)
-        {
-            await Game.NextPlayerActionAsync(action);
-        }
+       
 
 
 

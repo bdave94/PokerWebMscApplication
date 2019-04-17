@@ -16,11 +16,8 @@ namespace PokerWebApplication.Game
 
         private List<Player> players = new List<Player>();
 
-       
+        public List<Card> TableHand { get; } = new List<Card>();
 
-        private List<Card> TableHand = new List<Card>();
-
-      
 
         private Deck d = new Deck();
 
@@ -38,7 +35,7 @@ namespace PokerWebApplication.Game
         public string BigBlind { get; set; }
 
         public int GamePhase { get; set; }
-
+        public string GamePhaseName { get; set; }
 
         public string CurrentPlayer { get; set; }
         public int CurrentPlayerPos { get; private set; }
@@ -65,6 +62,8 @@ namespace PokerWebApplication.Game
 
             ReadyForNextPhase = false;
             ReadyForNextRound = false;
+
+            GamePhase = 0;
         }
 
 
@@ -72,6 +71,7 @@ namespace PokerWebApplication.Game
         {
             ReadyForNextPhase = false;
             ReadyForNextRound = false;
+            GamePhase = 0;
 
             d.ResetDeck();
             dealerNum += 1;
@@ -84,11 +84,19 @@ namespace PokerWebApplication.Game
             {
                 activePlayers.Add(players[z]);
 
-                activePlayers[z].ClearHand();
+                activePlayers[z].Hand.Clear();
                 activePlayers[z].SmallBlind = false;
                 activePlayers[z].BigBlind = false;
                 activePlayers[z].Dealer = false;
                 activePlayers[z].PlayersTurn = false;
+
+
+                activePlayers[z].PublicHand.Clear();
+                activePlayers[z].PublicHand.Add(new Card("back", 0));
+                activePlayers[z].PublicHand.Add(new Card("back", 0));
+
+                activePlayers[z].Action = "";
+
             }
 
             //clear table hand
@@ -97,29 +105,7 @@ namespace PokerWebApplication.Game
 
 
 
-
-
-
-        public async Task StartGameAsync()
-        {
-            
-            
-
-            //play rounds of poker
-            for (int i = 0; i < 3; i++)
-            {
-
-                /* hub.ResetClientCardPictures();
-                
-                 */
-            }
-
-        }
-
-        internal Task NextPlayerActionAsync(string action)
-        {
-            throw new NotImplementedException();
-        }
+       
 
         public void GetBlinds()
         {
@@ -173,8 +159,8 @@ namespace PokerWebApplication.Game
            
            for (int j = dealerNum+1; j < activePlayers.Count; j++)
            {
-                activePlayers[j].AddCardHand(d.DrawCard());
-                activePlayers[j].AddCardHand(d.DrawCard());
+                activePlayers[j].Hand.Add(d.DrawCard());
+                activePlayers[j].Hand.Add(d.DrawCard());
 
               
                     
@@ -183,8 +169,8 @@ namespace PokerWebApplication.Game
 
            for (int j = 0; j < dealerNum+1; j++)
            {
-                activePlayers[j].AddCardHand(d.DrawCard());
-                activePlayers[j].AddCardHand(d.DrawCard());
+                activePlayers[j].Hand.Add(d.DrawCard());
+                activePlayers[j].Hand.Add(d.DrawCard());
 
                 
            }
@@ -193,22 +179,7 @@ namespace PokerWebApplication.Game
         }
 
 
-        //ask if players want to play with their cards
-        public void GetRemainingPlayersFlop(int dealerNum, List<Player> activePlayers)
-        {
-            for (int i = dealerNum+1; i < activePlayers.Count; i++)
-            {
-                activePlayers[i].Call();
-
-            }
-
-            for (int i = 0; i < dealerNum + 1; i++)
-            {
-
-                activePlayers[i].Call();
-            }
-
-        }
+       
 
 
         public void GetCurrentPlayerAction()
@@ -250,13 +221,18 @@ namespace PokerWebApplication.Game
             {
                 if(nextPlayerPosition == dealerNum)
                 {
-                   
+                    CurrentPlayerPos = nextPlayerPosition;
                     CurrentPlayer = activePlayers[nextPlayerPosition].Name;
                     activePlayers[nextPlayerPosition].PlayersTurn = true;
                     askFirstPlayerInPhase = true;
 
-                    //ReadyForNextPhase = true;
-                    ReadyForNextRound = true;
+                    ReadyForNextPhase = true;
+                   
+                    GamePhase += 1;
+                    if(GamePhase == 4 )
+                    {
+                        ReadyForNextRound = true;
+                    }
 
                 } else
                 {
@@ -282,28 +258,83 @@ namespace PokerWebApplication.Game
         public void ProcessPlayerAction(string playerAction)
         {
 
-            if(playerAction.Equals("Call"))
+            if(playerAction.Equals("Called"))
             {
-
+                activePlayers[CurrentPlayerPos].Action = "Call";
             }
 
         }
 
 
-        private void StartNextPhase()
+        public void StartNextPhase()
         {
+            foreach(Player p in activePlayers)
+            {
+                p.Action = "";
+            }
+
+            switch (GamePhase)
+            {
+                case 1:  StartFlop(); break;
+                case 2:  StartTurn(); break;
+                case 3:  StartRiver(); break;
+            }
+        }
+
+
+       
+        private void StartFlop()
+        {
+            ReadyForNextPhase = false;
+            GamePhaseName = "Flop";
+            for (int i = 0; i < 3; i++)
+            {
+                TableHand.Add(d.DrawCard());
+            }
+
+            
+
+        }
+
+        private void StartTurn()
+        {
+            ReadyForNextPhase = false;
+            GamePhaseName = "Turn";
+
+            TableHand.Add(d.DrawCard());
+
+           
+        }
+
+        private void StartRiver()
+        {
+            ReadyForNextPhase = false;
+            GamePhaseName = "River";
+            TableHand.Add(d.DrawCard());
+
+            
+        }
+
+        public void FinishRound()
+        {
+            foreach(Player p in activePlayers)
+            {
+               
+                p.PublicHand[0].Suit = p.Hand[0].Suit;
+                p.PublicHand[0].Rank = p.Hand[0].Rank;
+
+                p.PublicHand[1].Suit = p.Hand[1].Suit;
+                p.PublicHand[1].Rank = p.Hand[1].Rank;
+
+            }
            
 
 
         }
 
 
-        private void FinishRound()
-        {
 
 
-
-        }
 
 
 
