@@ -20,6 +20,25 @@ namespace PokerWebApplication.Game
 
         public string Action { get; set; }
 
+        public int RaiseValue { get; set; }
+
+        public int AllInValue { get; set; }
+
+        public bool IsAllIn { get; set; }
+
+        public int PotMoney { get; set; }
+
+
+        public bool Dealer { get; set; }
+        public bool BigBlind { get; set; }
+        public bool SmallBlind { get; set; }
+        public bool PlayersTurn { get; set; }
+        public string ConnectionId { get; internal set; }
+        public PokerHand pHand { get; internal set; }
+
+        public string PokerHandText { get;  set; }
+
+
         public Player()
         {
             Hand = new List<Card>();
@@ -38,17 +57,6 @@ namespace PokerWebApplication.Game
             Action = "";
         }
 
-        public bool Dealer { get; set; }
-        public bool BigBlind { get; set; }
-        public bool SmallBlind { get; set; }
-        public bool PlayersTurn { get; set; }
-        public string ConnectionId { get; internal set; }
-
         
-
-        
-
-
-       
     }
 }

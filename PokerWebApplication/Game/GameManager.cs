@@ -23,16 +23,29 @@ namespace PokerWebApplication.Game
 
         private int dealerNum = 0;
 
-        
+        //Active player index of an active player who decides his action, last in a phase
+        private int lastPlayerActionPosition = 0;
 
+        //Active player index of an active player who decided his action is Raise, last in a phase
+        private int lastPlayerRaisePosition = -1;
+
+      
         private int tableId;
 
+        //The amount of money needed to stay in the phase
+        private int raiseValue = 0;
 
-        public List<Player> activePlayers = new List<Player>();
+        public int Pot { get; private set; }
+
+        public List<Player> ActivePlayers { get; } = new List<Player>();
+
+        public List<Player> AllInPlayers { get; } = new List<Player>();
 
         public string Dealer { get; set; }
         public string SmallBlind { get; set; }
         public string BigBlind { get; set; }
+
+        public int BlindValue { get; private set; }
 
         public int GamePhase { get; set; }
         public string GamePhaseName { get; set; }
@@ -47,6 +60,8 @@ namespace PokerWebApplication.Game
         public bool ReadyForNextRound { get; private set; }
 
         public bool ReadyForNextPhase { get; private set; }
+
+       
 
         public GameManager(List<Player> PlayerList,  int tableID)
         {
@@ -63,7 +78,11 @@ namespace PokerWebApplication.Game
             ReadyForNextPhase = false;
             ReadyForNextRound = false;
 
+          
+
             GamePhase = 0;
+
+            BlindValue = 40;
         }
 
 
@@ -72,32 +91,52 @@ namespace PokerWebApplication.Game
             ReadyForNextPhase = false;
             ReadyForNextRound = false;
             GamePhase = 0;
+            Pot = 0;
+            raiseValue = 0;
+            lastPlayerRaisePosition = -1;
 
             d.ResetDeck();
             dealerNum += 1;
 
-            if (dealerNum >= activePlayers.Count)
-                dealerNum = 0;
+          
 
-            activePlayers.Clear();
-            for (int z = 0; z < players.Count; z++)
+            ActivePlayers.Clear();
+            AllInPlayers.Clear();
+
+            foreach(Player p in players)
             {
-                activePlayers.Add(players[z]);
+                p.Hand.Clear();
+                p.SmallBlind = false;
+                p.BigBlind = false;
+                p.Dealer = false;
+                p.PlayersTurn = false;
+                p.IsAllIn = false;
+                p.RaiseValue = 0;
+                p.AllInValue = 0;
+                p.PotMoney = 0;
 
-                activePlayers[z].Hand.Clear();
-                activePlayers[z].SmallBlind = false;
-                activePlayers[z].BigBlind = false;
-                activePlayers[z].Dealer = false;
-                activePlayers[z].PlayersTurn = false;
 
 
-                activePlayers[z].PublicHand.Clear();
-                activePlayers[z].PublicHand.Add(new Card("back", 0));
-                activePlayers[z].PublicHand.Add(new Card("back", 0));
 
-                activePlayers[z].Action = "";
+                p.PublicHand.Clear();
+                p.PublicHand.Add(new Card("back", 0));
+                p.PublicHand.Add(new Card("back", 0));
+
+                p.Action = "";
+
+                if(p.Chips > 0)
+                {
+                    ActivePlayers.Add(p);
+                }
 
             }
+
+            
+
+            if (dealerNum >= ActivePlayers.Count)
+                dealerNum = 0;
+
+            lastPlayerActionPosition = dealerNum;
 
             //clear table hand
             TableHand.Clear();
@@ -109,58 +148,105 @@ namespace PokerWebApplication.Game
 
         public void GetBlinds()
         {
-            if (dealerNum < activePlayers.Count - 2)
+            raiseValue = BlindValue;
+
+            if (dealerNum < ActivePlayers.Count - 2)
             {
-                activePlayers[dealerNum].Dealer = true;
+                ActivePlayers[dealerNum].Dealer = true;
                
 
 
-                activePlayers[dealerNum + 1].SmallBlind = true;
+                ActivePlayers[dealerNum + 1].SmallBlind = true;
 
-                SmallBlind = activePlayers[dealerNum + 1].Name;
+                SmallBlind = ActivePlayers[dealerNum + 1].Name;
 
            
 
-                activePlayers[dealerNum + 2].BigBlind = true;
-                BigBlind = activePlayers[dealerNum + 2].Name;
+                ActivePlayers[dealerNum + 2].BigBlind = true;
+                BigBlind = ActivePlayers[dealerNum + 2].Name;
 
             }
 
-            if (dealerNum == activePlayers.Count - 2)
+            if (dealerNum == ActivePlayers.Count - 2)
             {
-                activePlayers[dealerNum].Dealer = true;
-                Dealer = activePlayers[dealerNum].Name;
+                ActivePlayers[dealerNum].Dealer = true;
+                Dealer = ActivePlayers[dealerNum].Name;
 
-                activePlayers[dealerNum + 1].SmallBlind = true;
-                SmallBlind = activePlayers[dealerNum + 1].Name;
+                ActivePlayers[dealerNum + 1].SmallBlind = true;
+                SmallBlind = ActivePlayers[dealerNum + 1].Name;
 
 
-                activePlayers[0].BigBlind = true;
-                BigBlind = activePlayers[0].Name;
+                ActivePlayers[0].BigBlind = true;
+                BigBlind = ActivePlayers[0].Name;
                
             }
 
-            if (dealerNum == activePlayers.Count - 1)
+            if (dealerNum == ActivePlayers.Count - 1)
             {
-                activePlayers[dealerNum].Dealer = true;
-                Dealer = activePlayers[dealerNum].Name;
+                ActivePlayers[dealerNum].Dealer = true;
+                Dealer = ActivePlayers[dealerNum].Name;
 
-                activePlayers[0].SmallBlind = true;
-                SmallBlind = activePlayers[0].Name;
+                ActivePlayers[0].SmallBlind = true;
+                SmallBlind = ActivePlayers[0].Name;
 
-                activePlayers[1].BigBlind = true;
-                BigBlind = activePlayers[1].Name;
+                ActivePlayers[1].BigBlind = true;
+                BigBlind = ActivePlayers[1].Name;
 
             }
+
+            foreach(Player p in ActivePlayers)
+            {
+                if(p.BigBlind)
+                {
+                    if(BlindValue >= p.Chips)
+                    {
+                        p.IsAllIn = true;
+                        AllInPlayers.Add(ActivePlayers[CurrentPlayerPos]);
+                        p.AllInValue = p.Chips;
+                        Pot += p.Chips;
+
+                        p.Chips = 0;
+
+                    } else
+                    {
+                        p.RaiseValue = BlindValue;
+                        p.Chips -= BlindValue;
+                        Pot += BlindValue;
+                    }                  
+                }
+
+                if (p.SmallBlind)
+                {
+                    if (BlindValue / 2 >= p.Chips)
+                    {
+                        p.IsAllIn = true;
+                        AllInPlayers.Add(ActivePlayers[CurrentPlayerPos]);
+                        p.AllInValue = p.Chips;
+                        Pot += p.Chips;
+
+                        p.Chips = 0;
+
+                    }
+                    else
+                    {
+                        p.RaiseValue = BlindValue / 2;
+                        p.Chips -= BlindValue / 2;
+                        Pot += BlindValue / 2;
+                    }
+                }
+
+            }
+
+
         }
 
         public void GiveCards()
         {
            
-           for (int j = dealerNum+1; j < activePlayers.Count; j++)
+           for (int j = dealerNum+1; j < ActivePlayers.Count; j++)
            {
-                activePlayers[j].Hand.Add(d.DrawCard());
-                activePlayers[j].Hand.Add(d.DrawCard());
+                ActivePlayers[j].Hand.Add(d.DrawCard());
+                ActivePlayers[j].Hand.Add(d.DrawCard());
 
               
                     
@@ -169,8 +255,8 @@ namespace PokerWebApplication.Game
 
            for (int j = 0; j < dealerNum+1; j++)
            {
-                activePlayers[j].Hand.Add(d.DrawCard());
-                activePlayers[j].Hand.Add(d.DrawCard());
+                ActivePlayers[j].Hand.Add(d.DrawCard());
+                ActivePlayers[j].Hand.Add(d.DrawCard());
 
                 
            }
@@ -185,7 +271,7 @@ namespace PokerWebApplication.Game
         public void GetCurrentPlayerAction()
         {
 
-            foreach(Player p in activePlayers)
+            foreach(Player p in ActivePlayers)
             {
                 p.PlayersTurn = false;
             }
@@ -193,60 +279,230 @@ namespace PokerWebApplication.Game
             if (askFirstPlayerInPhase)
             {
                 askFirstPlayerInPhase = false;
-                if(dealerNum + 1 < activePlayers.Count)
-                {
+               
                    
-                    CurrentPlayer = activePlayers[dealerNum + 1].Name;
 
-                    activePlayers[dealerNum + 1].PlayersTurn = true;
+                CurrentPlayerPos = -1;
+                nextPlayerPosition = -1;
 
-                    CurrentPlayerPos = dealerNum + 1;
-                    nextPlayerPosition = dealerNum + 2;
+                bool foundCurrentPlayerPos = false;
+                bool foundNextPlayerPos = false;
+                for(int i = lastPlayerActionPosition + 1; i < ActivePlayers.Count; i++)
+                {
 
-                    if (nextPlayerPosition == activePlayers.Count)
+                    if ((ActivePlayers[i].IsAllIn == false  || (ActivePlayers[i].IsAllIn == true && i == lastPlayerRaisePosition)) 
+                        && foundCurrentPlayerPos == true && foundNextPlayerPos == false)
                     {
-                        nextPlayerPosition = 0;
+                        foundNextPlayerPos = true;
+                        nextPlayerPosition = i;
                     }
 
-                }  else
-                {
-                    nextPlayerPosition = 1;
-                    CurrentPlayer = activePlayers[0].Name;
-                    activePlayers[0].PlayersTurn = true;
-                    CurrentPlayerPos = 0;
-                }
-              
+                    if (ActivePlayers[i].IsAllIn == false && foundCurrentPlayerPos== false)
+                    {
+                        foundCurrentPlayerPos = true;
+                        CurrentPlayerPos = i;
+                        CurrentPlayer = ActivePlayers[CurrentPlayerPos].Name;
+                        ActivePlayers[CurrentPlayerPos].PlayersTurn = true;
+                    }   
 
-            } else
-            {
-                if(nextPlayerPosition == dealerNum)
+                       
+
+                }
+                if(foundCurrentPlayerPos == false || foundNextPlayerPos == false)
                 {
-                    CurrentPlayerPos = nextPlayerPosition;
-                    CurrentPlayer = activePlayers[nextPlayerPosition].Name;
-                    activePlayers[nextPlayerPosition].PlayersTurn = true;
+                    for (int i = 0; i < lastPlayerActionPosition + 1; i++)
+                    {
+
+                        if ((ActivePlayers[i].IsAllIn == false || (ActivePlayers[i].IsAllIn == true && i == lastPlayerRaisePosition)) 
+                            && foundCurrentPlayerPos == true && foundNextPlayerPos == false)
+                        {
+                            foundNextPlayerPos = true;
+                            nextPlayerPosition = i;
+                        }
+
+                        if (ActivePlayers[i].IsAllIn == false && foundCurrentPlayerPos == false)
+                        {
+                                foundCurrentPlayerPos = true;
+                                CurrentPlayerPos = i;
+                                CurrentPlayer = ActivePlayers[CurrentPlayerPos].Name;
+                                ActivePlayers[CurrentPlayerPos].PlayersTurn = true;
+                        }
+
+                            
+
+                    }
+
+                }
+
+                if (foundNextPlayerPos == false && foundCurrentPlayerPos == true)
+                {
                     askFirstPlayerInPhase = true;
 
                     ReadyForNextPhase = true;
-                   
+
                     GamePhase += 1;
-                    if(GamePhase == 4 )
+                    if (GamePhase == 4)
                     {
                         ReadyForNextRound = true;
                     }
 
-                } else
-                {
+                }
 
+
+                if (nextPlayerPosition == lastPlayerRaisePosition)
+                {
+                    askFirstPlayerInPhase = true;
+
+                    ReadyForNextPhase = true;
+
+                    GamePhase += 1;
+                    if (GamePhase == 4)
+                    {
+                        ReadyForNextRound = true;
+                    }
+
+                }
+
+
+            } else
+            {
+                if(nextPlayerPosition == lastPlayerActionPosition)
+                {
                     CurrentPlayerPos = nextPlayerPosition;
-                    CurrentPlayer = activePlayers[nextPlayerPosition].Name;
-                    activePlayers[nextPlayerPosition].PlayersTurn = true;
+                    CurrentPlayer = ActivePlayers[nextPlayerPosition].Name;
+                    ActivePlayers[nextPlayerPosition].PlayersTurn = true;
+                    askFirstPlayerInPhase = true;
+
                     nextPlayerPosition += 1;
 
-                    if (nextPlayerPosition == activePlayers.Count)
+                    if (nextPlayerPosition == ActivePlayers.Count)
                     {
                         nextPlayerPosition = 0;
                     }
+
                     
+                   
+                   
+
+                } else
+                {
+                   
+                    
+
+                    bool foundCurrentPlayerPos = false;
+                    bool foundNextPlayerPos = false;
+                    if(nextPlayerPosition > lastPlayerActionPosition)
+                    {
+                        for (int i = nextPlayerPosition; i < ActivePlayers.Count; i++)
+                        {
+
+                            if ((ActivePlayers[i].IsAllIn == false || (ActivePlayers[i].IsAllIn == true && i == lastPlayerRaisePosition)) 
+                                && foundCurrentPlayerPos == true && foundNextPlayerPos == false)
+                            {
+                                foundNextPlayerPos = true;
+                                nextPlayerPosition = i;
+                            }
+
+
+                            if (ActivePlayers[i].IsAllIn == false && foundCurrentPlayerPos == false)
+                            {
+                                foundCurrentPlayerPos = true;
+                                CurrentPlayerPos = i;
+                                CurrentPlayer = ActivePlayers[CurrentPlayerPos].Name;
+                                ActivePlayers[CurrentPlayerPos].PlayersTurn = true;
+                            }
+
+                        }
+
+                        if (foundCurrentPlayerPos == false || foundNextPlayerPos == false)
+                        {
+                            for (int i = 0; i < lastPlayerActionPosition + 1; i++)
+                            {
+
+                                if ((ActivePlayers[i].IsAllIn == false || (ActivePlayers[i].IsAllIn == true && i == lastPlayerRaisePosition)) 
+                                    && foundCurrentPlayerPos == true && foundNextPlayerPos == false)
+                                {
+                                    foundNextPlayerPos = true;
+                                    nextPlayerPosition = i;
+                                }
+
+
+
+                                if (ActivePlayers[i].IsAllIn == false && foundCurrentPlayerPos == false)
+                                {
+                                    foundCurrentPlayerPos = true;
+                                    CurrentPlayerPos = i;
+                                    CurrentPlayer = ActivePlayers[CurrentPlayerPos].Name;
+                                    ActivePlayers[CurrentPlayerPos].PlayersTurn = true;
+                                }
+
+
+
+                            }
+
+                        }
+
+
+                    } else
+                    {
+
+                        if (foundCurrentPlayerPos == false || foundNextPlayerPos == false)
+                        {
+                            for (int i = nextPlayerPosition; i < lastPlayerActionPosition + 1; i++)
+                            {
+
+                                if ((ActivePlayers[i].IsAllIn == false || (ActivePlayers[i].IsAllIn == true && i == lastPlayerRaisePosition)) && foundCurrentPlayerPos == true && foundNextPlayerPos == false)
+                                {
+                                    foundNextPlayerPos = true;
+                                    nextPlayerPosition = i;
+                                }
+
+
+
+                                if (ActivePlayers[i].IsAllIn == false && foundCurrentPlayerPos == false)
+                                {
+                                    foundCurrentPlayerPos = true;
+                                    CurrentPlayerPos = i;
+                                    CurrentPlayer = ActivePlayers[CurrentPlayerPos].Name;
+                                    ActivePlayers[CurrentPlayerPos].PlayersTurn = true;
+                                }
+                            }
+
+                        }
+
+                    }
+                   
+
+                    if (foundNextPlayerPos == false && foundCurrentPlayerPos == true)
+                    {
+                        askFirstPlayerInPhase = true;
+
+                        ReadyForNextPhase = true;
+
+                        GamePhase += 1;
+                        if (GamePhase == 4)
+                        {
+                            ReadyForNextRound = true;
+                        }
+
+                    }
+
+
+                    if (nextPlayerPosition == lastPlayerRaisePosition)
+                    {
+
+                        askFirstPlayerInPhase = true;
+
+                        ReadyForNextPhase = true;
+
+                        GamePhase += 1;
+                        if (GamePhase == 4)
+                        {
+                            ReadyForNextRound = true;
+                        }
+                    }
+
+
                 }
  
             }
@@ -260,17 +516,274 @@ namespace PokerWebApplication.Game
 
             if(playerAction.Equals("Called"))
             {
-                activePlayers[CurrentPlayerPos].Action = "Call";
+
+                if (CurrentPlayerPos == lastPlayerActionPosition &&  
+                    (lastPlayerRaisePosition != -1 && nextPlayerPosition != lastPlayerRaisePosition) == false)
+                {
+                    ReadyForNextPhase = true;
+
+                    GamePhase += 1;
+                    if (GamePhase == 4)
+                    {
+                        ReadyForNextRound = true;
+                    }
+
+                }
+
+                if (ActivePlayers[CurrentPlayerPos].Chips <= raiseValue)
+                {
+                    //player action is All in
+                    ActivePlayers[CurrentPlayerPos].Action = "All in";
+
+                    ActivePlayers[CurrentPlayerPos].AllInValue = ActivePlayers[CurrentPlayerPos].Chips;
+
+                    Pot += ActivePlayers[CurrentPlayerPos].Chips;
+
+                    ActivePlayers[CurrentPlayerPos].PotMoney += ActivePlayers[CurrentPlayerPos].Chips;
+
+                    ActivePlayers[CurrentPlayerPos].Chips = 0;
+                } else
+                {
+                    //player action is Call
+                    ActivePlayers[CurrentPlayerPos].Action = "Call";
+
+                    ActivePlayers[CurrentPlayerPos].Chips -= raiseValue - ActivePlayers[CurrentPlayerPos].RaiseValue;
+
+                    Pot += raiseValue - ActivePlayers[CurrentPlayerPos].RaiseValue;
+                    ActivePlayers[CurrentPlayerPos].PotMoney += raiseValue - ActivePlayers[CurrentPlayerPos].RaiseValue;
+
+                }
+
+
+                    
+
             }
+
+            if (playerAction.Equals("Folded"))
+            {
+
+                if (CurrentPlayerPos == lastPlayerActionPosition && 
+                    (lastPlayerRaisePosition != -1 && nextPlayerPosition != lastPlayerRaisePosition) == false)
+                {
+                    ReadyForNextPhase = true;
+
+                    GamePhase += 1;
+                    if (GamePhase == 4)
+                    {
+                        ReadyForNextRound = true;
+                    }
+
+                }
+
+                ActivePlayers[CurrentPlayerPos].Action = "Fold";
+
+                ActivePlayers[CurrentPlayerPos].PlayersTurn = false;
+                Player p = ActivePlayers.Find(player => player.Name == CurrentPlayer);
+                p.PlayersTurn = false;
+                ActivePlayers.Remove(p);
+
+                
+                if(CurrentPlayerPos == 0)
+                {
+                   
+                    if (CurrentPlayerPos == lastPlayerActionPosition)
+                    {
+                        lastPlayerActionPosition = ActivePlayers.Count - 1;
+                        
+                    } else
+                    {
+                        lastPlayerActionPosition -= 1;
+                    }
+
+                    CurrentPlayerPos = ActivePlayers.Count - 1;
+                    nextPlayerPosition = 0;
+
+                    if(lastPlayerRaisePosition != -1)
+                    {
+                        lastPlayerRaisePosition -= 1;
+                    }
+                  
+
+                } else
+                {
+                  
+                    if (CurrentPlayerPos == lastPlayerActionPosition)
+                    {
+                        lastPlayerActionPosition -= 1;
+                    } else
+                    {
+                        if (CurrentPlayerPos < lastPlayerActionPosition)
+                        {
+                            lastPlayerActionPosition -= 1;
+                        }
+
+                    }
+
+                    if(nextPlayerPosition != 0)
+                    {
+                        nextPlayerPosition -= 1;
+                    }
+
+                    if(CurrentPlayerPos < lastPlayerRaisePosition && lastPlayerRaisePosition != -1)
+                    {
+                        lastPlayerRaisePosition -= 1;
+                    }
+
+                    CurrentPlayerPos -= 1;
+
+                }
+
+            }
+
+
+            if (playerAction.Contains("Raised"))
+            {
+                bool canPlayerRaise = true;
+
+                Player p = ActivePlayers.Find(player => player.Name == CurrentPlayer);
+                int playerraisevalue = int.Parse(playerAction.Split(" ")[1]);
+
+                if (playerraisevalue > p.Chips)
+                {
+                    playerraisevalue = p.Chips;
+                }
+
+                if ( p.Chips <= raiseValue )
+                {
+                    canPlayerRaise = false;
+                }
+
+
+                if (lastPlayerRaisePosition != -1)
+                {
+
+                    if(lastPlayerRaisePosition > lastPlayerActionPosition)
+                    {
+                        if (CurrentPlayerPos > lastPlayerActionPosition && CurrentPlayerPos < lastPlayerRaisePosition)
+                            canPlayerRaise = false;
+
+                    } else
+                    {
+                        if (CurrentPlayerPos > lastPlayerActionPosition ||  CurrentPlayerPos < lastPlayerRaisePosition)
+                            canPlayerRaise = false;
+                    }
+
+
+                }
+                
+                if(canPlayerRaise)
+                {
+                              
+                    lastPlayerRaisePosition = CurrentPlayerPos;
+                                  
+                    if(playerraisevalue == p.Chips || p.Chips <= (raiseValue+ playerraisevalue))
+                    {
+                        //player action is All in
+                        ActivePlayers[CurrentPlayerPos].Action = "All in";
+                        ActivePlayers[CurrentPlayerPos].AllInValue = ActivePlayers[CurrentPlayerPos].Chips;
+                        if (raiseValue <= p.Chips)
+                        {
+                            raiseValue = p.Chips;
+                        }
+
+
+                       
+                        Pot += p.Chips;
+                        ActivePlayers[CurrentPlayerPos].PotMoney += ActivePlayers[CurrentPlayerPos].Chips;
+
+                        p.Chips = 0;
+
+ 
+                   
+                    } else
+                    {
+                        //player action is raise
+                        ActivePlayers[CurrentPlayerPos].Action = playerAction;
+
+                        raiseValue += playerraisevalue;
+
+                        p.Chips -= raiseValue;
+                        Pot += raiseValue;
+                        ActivePlayers[CurrentPlayerPos].PotMoney += raiseValue;
+
+                        p.RaiseValue += raiseValue;
+                    }
+
+                } else
+                {
+
+                    if ( p.Chips <= raiseValue )
+                    {
+                        //player action is All in
+                        ActivePlayers[CurrentPlayerPos].Action = "All in";
+                        ActivePlayers[CurrentPlayerPos].AllInValue = ActivePlayers[CurrentPlayerPos].Chips;
+
+                        Pot += p.Chips;
+                        ActivePlayers[CurrentPlayerPos].PotMoney += ActivePlayers[CurrentPlayerPos].Chips;
+
+                        p.Chips = 0;
+                    } else
+                    {
+                        //player action is call
+                        ActivePlayers[CurrentPlayerPos].Action = "Call";
+                        ActivePlayers[CurrentPlayerPos].Chips -= raiseValue - ActivePlayers[CurrentPlayerPos].RaiseValue;
+
+
+
+                        Pot += raiseValue - ActivePlayers[CurrentPlayerPos].RaiseValue;
+
+                        ActivePlayers[CurrentPlayerPos].PotMoney += raiseValue - ActivePlayers[CurrentPlayerPos].RaiseValue;
+
+                    }                
+                }
+
+            }
+
+            if (ActivePlayers[CurrentPlayerPos].Chips == 0)
+            {
+                AllInPlayers.Add(ActivePlayers[CurrentPlayerPos]);
+
+                ActivePlayers[CurrentPlayerPos].IsAllIn = true;
+
+            }
+
 
         }
 
 
         public void StartNextPhase()
         {
-            foreach(Player p in activePlayers)
+            lastPlayerRaisePosition = -1;
+
+            raiseValue = 0;
+            
+
+            for(int i=0; i <  ActivePlayers.Count; i++)
             {
+                Player p = ActivePlayers[i];
+
                 p.Action = "";
+                p.RaiseValue = 0;
+
+                if(p.IsAllIn)
+                {
+                    p.Action = "All in";
+                    if (i == lastPlayerActionPosition)
+                    {
+                        if(i == 0)
+                        {
+                            lastPlayerActionPosition = ActivePlayers.Count - 2;
+                        } else
+                        {
+                            lastPlayerActionPosition -= 1;
+                        }
+
+                    }
+
+                    ActivePlayers.Remove(p);
+                    i -= 1;
+                }
+
             }
 
             switch (GamePhase)
@@ -315,9 +828,12 @@ namespace PokerWebApplication.Game
             
         }
 
-        public void FinishRound()
+        public string FinishRound()
         {
-            foreach(Player p in activePlayers)
+            List<Player> playersStayedIn = new List<Player>();
+            List<Player> playersWithChipsLeft = new List<Player>();
+
+            foreach (Player p in ActivePlayers)
             {
                
                 p.PublicHand[0].Suit = p.Hand[0].Suit;
@@ -326,8 +842,78 @@ namespace PokerWebApplication.Game
                 p.PublicHand[1].Suit = p.Hand[1].Suit;
                 p.PublicHand[1].Rank = p.Hand[1].Rank;
 
+                p.pHand = PokerRules.setPokerHand(p.Hand, TableHand);
+
+                playersStayedIn.Add(p);
+
+                p.PlayersTurn = false;
+
             }
+
+            foreach (Player p in AllInPlayers)
+            {
+                p.PublicHand[0].Suit = p.Hand[0].Suit;
+                p.PublicHand[0].Rank = p.Hand[0].Rank;
+
+                p.PublicHand[1].Suit = p.Hand[1].Suit;
+                p.PublicHand[1].Rank = p.Hand[1].Rank;
+                p.pHand = PokerRules.setPokerHand(p.Hand, TableHand);
+
+                playersStayedIn.Add(p);
+            }
+
+
+            playersStayedIn.Sort(new PokerRules());
+
+            if(playersStayedIn[playersStayedIn.Count-1].IsAllIn == false)
+            {
+
+                playersStayedIn[playersStayedIn.Count - 1].Chips += Pot;
+            } else
+            {
+                foreach(Player p in players)
+                {
+                    if(p.PotMoney > playersStayedIn[playersStayedIn.Count - 1].AllInValue)
+                    {
+                        playersStayedIn[playersStayedIn.Count - 1].Chips += playersStayedIn[playersStayedIn.Count - 1].AllInValue;
+
+                    } else
+                    {
+                        playersStayedIn[playersStayedIn.Count - 1].Chips += p.PotMoney;
+                    }
+
+                }             
+            }
+
+            playersStayedIn[playersStayedIn.Count - 1].Action = "Winner";
+
+            playersStayedIn[playersStayedIn.Count - 1].PlayersTurn = true;
+
+            PokerHand ph = playersStayedIn[playersStayedIn.Count - 1].pHand;
+
+            string result = playersStayedIn[playersStayedIn.Count - 1].Name +" wins with " +
+                PokerRules.GetPokerHandAsText(playersStayedIn[playersStayedIn.Count - 1].pHand);
+
            
+            foreach(Player p in players)
+            {
+                if (p.Chips > 0)
+                {
+                    playersWithChipsLeft.Add(p);
+                }
+
+            }
+            
+            if(playersWithChipsLeft.Count == 1)
+            {
+
+                result += playersWithChipsLeft[0] + " has won the match!";
+            }
+
+            return result;
+
+
+
 
 
         }
