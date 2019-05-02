@@ -1,5 +1,6 @@
 ﻿using Microsoft.AspNetCore.SignalR;
 using PokerWebApplication.Hubs;
+using PokerWebApplication.Model;
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -41,6 +42,12 @@ namespace PokerWebApplication.Game
 
         public List<Player> AllInPlayers { get; } = new List<Player>();
 
+        public List<ScoreInfo> ScoreBoard { get; } = new List<ScoreInfo>();
+
+       
+
+        public List<string> PlayerKonckedOut { get; } = new List<string>();
+
         public string Dealer { get; set; }
         public string SmallBlind { get; set; }
         public string BigBlind { get; set; }
@@ -60,8 +67,8 @@ namespace PokerWebApplication.Game
         public bool ReadyForNextRound { get; private set; }
 
         public bool ReadyForNextPhase { get; private set; }
+        public bool GameEnded { get; private set; }
 
-       
 
         public GameManager(List<Player> PlayerList,  int tableID)
         {
@@ -78,7 +85,7 @@ namespace PokerWebApplication.Game
             ReadyForNextPhase = false;
             ReadyForNextRound = false;
 
-          
+            GameEnded = false;
 
             GamePhase = 0;
 
@@ -119,19 +126,43 @@ namespace PokerWebApplication.Game
 
 
                 p.PublicHand.Clear();
-                p.PublicHand.Add(new Card("back", 0));
-                p.PublicHand.Add(new Card("back", 0));
+               
 
                 p.Action = "";
 
                 if(p.Chips > 0)
                 {
                     ActivePlayers.Add(p);
+                    p.PublicHand.Add(new Card("back", 0));
+                    p.PublicHand.Add(new Card("back", 0));
+                } else
+                {
+                    p.PublicHand.Add(new Card(" ", 0));
+                    p.PublicHand.Add(new Card(" ", 0));
+
+                    if(PlayerKonckedOut.Contains(p.Name) == false)
+                    {
+                        PlayerKonckedOut.Add(p.Name);
+                    }
+
                 }
 
             }
+            ScoreBoard.Clear();
+            foreach (Player p in ActivePlayers)
+            {
+                ScoreBoard.Add( new ScoreInfo() { Name=p.Name, Chips= p.Chips});
 
-            
+            }
+            ScoreBoard.Sort(new ScoreInfo());
+
+            ScoreBoard.Reverse();
+
+            for(int i = PlayerKonckedOut.Count-1; i >= 0; i--)
+            {
+                ScoreBoard.Add(new ScoreInfo() { Name = PlayerKonckedOut[i], Chips = 0 });
+            }
+
 
             if (dealerNum >= ActivePlayers.Count)
                 dealerNum = 0;
@@ -211,6 +242,7 @@ namespace PokerWebApplication.Game
                     {
                         p.RaiseValue = BlindValue;
                         p.Chips -= BlindValue;
+                        p.PotMoney += BlindValue;
                         Pot += BlindValue;
                     }                  
                 }
@@ -231,6 +263,7 @@ namespace PokerWebApplication.Game
                     {
                         p.RaiseValue = BlindValue / 2;
                         p.Chips -= BlindValue / 2;
+                        p.PotMoney += BlindValue / 2;
                         Pot += BlindValue / 2;
                     }
                 }
@@ -552,6 +585,7 @@ namespace PokerWebApplication.Game
                     Pot += raiseValue - ActivePlayers[CurrentPlayerPos].RaiseValue;
                     ActivePlayers[CurrentPlayerPos].PotMoney += raiseValue - ActivePlayers[CurrentPlayerPos].RaiseValue;
 
+                    ActivePlayers[CurrentPlayerPos].RaiseValue =raiseValue;
                 }
 
 
@@ -653,6 +687,10 @@ namespace PokerWebApplication.Game
                     canPlayerRaise = false;
                 }
 
+                if(ActivePlayers.Count - AllInPlayers.Count == 1 )
+                {
+                    canPlayerRaise = false;
+                }
 
                 if (lastPlayerRaisePosition != -1)
                 {
@@ -693,8 +731,6 @@ namespace PokerWebApplication.Game
 
                         p.Chips = 0;
 
- 
-                   
                     } else
                     {
                         //player action is raise
@@ -707,6 +743,7 @@ namespace PokerWebApplication.Game
                         ActivePlayers[CurrentPlayerPos].PotMoney += raiseValue;
 
                         p.RaiseValue += raiseValue;
+
                     }
 
                 } else
@@ -722,6 +759,21 @@ namespace PokerWebApplication.Game
                         ActivePlayers[CurrentPlayerPos].PotMoney += ActivePlayers[CurrentPlayerPos].Chips;
 
                         p.Chips = 0;
+
+
+                        if (CurrentPlayerPos == lastPlayerActionPosition &&
+                            (lastPlayerRaisePosition != -1 && nextPlayerPosition != lastPlayerRaisePosition) == false)
+                        {
+                            ReadyForNextPhase = true;
+
+                            GamePhase += 1;
+                            if (GamePhase == 4)
+                            {
+                                ReadyForNextRound = true;
+                            }
+
+                        }
+
                     } else
                     {
                         //player action is call
@@ -733,6 +785,19 @@ namespace PokerWebApplication.Game
                         Pot += raiseValue - ActivePlayers[CurrentPlayerPos].RaiseValue;
 
                         ActivePlayers[CurrentPlayerPos].PotMoney += raiseValue - ActivePlayers[CurrentPlayerPos].RaiseValue;
+
+                        if (CurrentPlayerPos == lastPlayerActionPosition &&
+                            (lastPlayerRaisePosition != -1 && nextPlayerPosition != lastPlayerRaisePosition) == false)
+                        {
+                            ReadyForNextPhase = true;
+
+                            GamePhase += 1;
+                            if (GamePhase == 4)
+                            {
+                                ReadyForNextRound = true;
+                            }
+
+                        }
 
                     }                
                 }
@@ -873,9 +938,14 @@ namespace PokerWebApplication.Game
             {
                 foreach(Player p in players)
                 {
-                    if(p.PotMoney > playersStayedIn[playersStayedIn.Count - 1].AllInValue)
+                    if(p.PotMoney > playersStayedIn[playersStayedIn.Count - 1].PotMoney)
                     {
-                        playersStayedIn[playersStayedIn.Count - 1].Chips += playersStayedIn[playersStayedIn.Count - 1].AllInValue;
+                        p.PotMoney -= playersStayedIn[playersStayedIn.Count - 1].PotMoney;
+
+                        playersStayedIn[playersStayedIn.Count - 1].Chips += playersStayedIn[playersStayedIn.Count - 1].PotMoney;
+
+                        p.Chips += p.PotMoney;
+
 
                     } else
                     {
@@ -907,20 +977,47 @@ namespace PokerWebApplication.Game
             if(playersWithChipsLeft.Count == 1)
             {
 
-                result += playersWithChipsLeft[0] + " has won the match!";
+                result += " - "+playersWithChipsLeft[0].Name + " has won the match!";
+
+                GameEnded = true;
             }
 
             return result;
 
-
-
-
-
         }
 
+        public int GetCurrentPlayerCallValue()
+        {
+            int callValue = 0;
 
+            callValue = raiseValue - ActivePlayers[CurrentPlayerPos].RaiseValue;
 
+            return callValue;
+        }
 
+        public void RemovePlayer(string name)
+        {
+            Player p = players.Find(player => player.Name == name);
+            int playerChips = p.Chips;
+            p.Chips = 0;
+            
+
+            if(playerChips > 0 && players.Count != 0)
+            {
+                int playerChipRemainder = playerChips % players.Count;
+                if (playerChipRemainder !=0 )
+                {
+                    
+                    playerChips -= playerChipRemainder;
+                    players[0].Chips += playerChipRemainder;
+                }
+
+                foreach(Player player in players)
+                {
+                    player.Chips += playerChips;
+                }
+            }
+        }
 
 
 

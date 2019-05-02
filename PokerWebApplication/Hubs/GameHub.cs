@@ -97,6 +97,12 @@ namespace PokerWebApplication.Hubs
 
             await SendPlayerInfo(table.id);
 
+            int currentPlayerIndex = table.Game.CurrentPlayerPos;
+            int callValue = table.Game.GetCurrentPlayerCallValue();
+            await SendCallValue(table.Game.ActivePlayers[currentPlayerIndex].ConnectionId, callValue);
+
+            await SendScoreInfo(table.id);
+            await SendTableInfo(table.id);
 
         }
  
@@ -217,13 +223,14 @@ namespace PokerWebApplication.Hubs
                 await SendPlayerInfo(tableID);
                 await NewGameLogMessage(roundResult);
 
-                foreach (Player player in GetTablebyId(tableID).Game.ActivePlayers)
+                foreach (Player player in GetTablebyId(tableID).Players)
                 {
                     await ShowPlayerCards(player.ConnectionId, player.Hand);
                 }
                 Thread.Sleep(15000);
 
                 await NewRound(GetTablebyId(tableID));
+               
             } else
             {
                 if(GetTablebyId(tableID).Game.ReadyForNextPhase)
@@ -245,20 +252,24 @@ namespace PokerWebApplication.Hubs
                             await NewGameLogMessage(GetTablebyId(tableID).Game.GamePhaseName + " started");
                             //asztal lapok firssítése
                             await SendTableInfo(tableID);
-                            Thread.Sleep(5000);
+                            
                         }
 
                         string roundResult = GetTablebyId(tableID).Game.FinishRound();
                         await SendPlayerInfo(tableID);
                         await NewGameLogMessage(roundResult);
 
-                        foreach (Player player in GetTablebyId(tableID).Game.ActivePlayers)
+                        foreach (Player player in GetTablebyId(tableID).Players)
                         {
                             await ShowPlayerCards(player.ConnectionId, player.Hand);
                         }
                         Thread.Sleep(15000);
-
-                        await NewRound(GetTablebyId(tableID));
+                        if(GetTablebyId(tableID).Game.GameEnded == false)
+                        {
+                            await NewRound(GetTablebyId(tableID));
+                           
+                        }
+                       
 
                     } else
                     {
@@ -266,15 +277,20 @@ namespace PokerWebApplication.Hubs
                         Thread.Sleep(15000);
 
                         await NewRound(GetTablebyId(tableID));
+                        
                     }
 
                 } else
                 {
                     GetTablebyId(tableID).Game.GetCurrentPlayerAction();
-
+                   
                     await NewGameLogMessage(GetTablebyId(tableID).Game.CurrentPlayer + " 's turn");
                     await SendPlayerInfo(tableID);
                     await SendTableInfo(tableID);
+
+                    int currentPlayerIndex = GetTablebyId(tableID).Game.CurrentPlayerPos;
+                    int callValue = GetTablebyId(tableID).Game.GetCurrentPlayerCallValue();
+                    await SendCallValue(GetTablebyId(tableID).Game.ActivePlayers[currentPlayerIndex].ConnectionId, callValue);
 
                 }                
             }
@@ -291,6 +307,17 @@ namespace PokerWebApplication.Hubs
         }
 
 
+        public async Task SendCallValue(string connectionId, int callValue)
+        { 
+            await Clients.Client(connectionId).SendAsync("RefreshCallValueInfo", callValue);
+        }
+
+        public async Task SendScoreInfo(int tableId)
+        {
+            await Clients.All.SendAsync("RefreshScore", GetTablebyId(tableId).Game.ScoreBoard);
+        }
+
+
         public async Task RefreshGame(string gameId)
         {
             Guid gameid = Guid.Parse(gameId);
@@ -303,6 +330,22 @@ namespace PokerWebApplication.Hubs
             await Clients.Caller.SendAsync("getInfo", GetPlayerInfo(info.TableId));
             await ShowPlayerCards(Context.ConnectionId, GetTablebyId(info.TableId).Players[info.TablePosition].Hand);
             await Clients.Caller.SendAsync("GetTableInfo", GetTableInfo(info.TableId));
+            await Clients.Caller.SendAsync("RefreshScore", GetTablebyId(info.TableId).Game.ScoreBoard);
+
+            if (GetTablebyId(info.TableId).Players[info.TablePosition].Name.Equals(GetTablebyId(info.TableId).Game.CurrentPlayer) )
+            {
+                int currentPlayerIndex = GetTablebyId(info.TableId).Game.CurrentPlayerPos;
+                int callValue = GetTablebyId(info.TableId).Game.GetCurrentPlayerCallValue();
+                await SendCallValue(GetTablebyId(info.TableId).Game.ActivePlayers[currentPlayerIndex].ConnectionId, callValue);
+
+            }
+
+        }
+
+        public async Task LeaveTableAsync(int tableID, string name)
+        {
+            GetTablebyId(tableID).RemovePlayer(name);
+            await NewGameLogMessage(name + "has left the game");
         }
 
 

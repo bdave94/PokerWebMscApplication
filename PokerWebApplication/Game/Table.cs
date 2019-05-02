@@ -51,12 +51,10 @@ namespace PokerWebApplication.Game
             Game = new GameManager(this.Players, this.id);
         }
 
-        
-
-       
-
-
-
-
+        internal void RemovePlayer(string name)
+        {
+            Game.RemovePlayer(name);
+           
+        }
     }
 }
