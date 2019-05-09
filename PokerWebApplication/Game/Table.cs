@@ -12,10 +12,12 @@ namespace PokerWebApplication.Game
         public int id { get; set; }
         public List<Player> Players= new List<Player>();
         public GameManager Game { get; private set; }
+        public bool Full { get; set; }
 
         public Table()
         {
-
+            Game = new GameManager();
+            Full = false;
         }
 
         public int AddNewPlayer(string name, string connectionId)
@@ -48,13 +50,37 @@ namespace PokerWebApplication.Game
 
         public void InitGame()
         {
-            Game = new GameManager(this.Players, this.id);
+            
+            Game.Init(this.Players, this.id);
         }
 
-        internal void RemovePlayer(string name)
+        public void RemovePlayer(string name)
         {
-            Game.RemovePlayer(name);
-           
+            Player p = Players.Find(player => player.Name == name);
+            Game.RemovePlayer(p);
+            Players.Remove(p);
+        }
+
+        public void NewRound()
+        {
+
+            Game.StartNextRound();
+            for (int i = 0; i < Players.Count; i++)
+            {
+                if (Players[i].Action.Equals("giveup"))
+                {
+                    Players.Remove(Players[i]);
+                    i -= 1;
+                }
+
+            }
+        }
+
+        public void Reset()
+        {
+            Game.Clear();
+            Players.Clear();
+            Full = false;
         }
     }
 }

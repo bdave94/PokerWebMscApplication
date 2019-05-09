@@ -38,6 +38,8 @@ namespace PokerWebApplication.Game
 
         public string PokerHandText { get;  set; }
 
+        public bool CardOneHighlight { get; set; }
+        public bool CardTwoHighlight { get; set; }
 
         public Player()
         {
@@ -55,6 +57,8 @@ namespace PokerWebApplication.Game
             SmallBlind = false;
             PlayersTurn = false;
             Action = "";
+            CardOneHighlight = false;
+            CardTwoHighlight = false;
         }
 
         

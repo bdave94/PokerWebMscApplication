@@ -21,6 +21,10 @@ namespace PokerWebApplication.Model
       
         public Card CardTwo { get; set; }
 
+        public bool CardOneHighlight { get; set; }
+        public bool CardTwoHighlight { get; set; }
+
+
         public string Action { get; set; }
 
 

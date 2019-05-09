@@ -19,7 +19,12 @@ namespace PokerWebApplication.Game
         public int FullHouseTwoStr { get; set; }
 
         public bool Flush { get; set; }
+        public string FlushSuit { get; set; }
         public int FlushHighest { get; set; }
+        public int FlushSecondHighest { get; set; }
+        public int FlushThirdHighest { get; set; }
+        public int FlushFourthHighest { get; set; }
+        public int FlushFifthHighest { get; set; }
 
         public bool Straight { get; set; }
         public int StraightHighest { get; set; }
@@ -38,6 +43,7 @@ namespace PokerWebApplication.Game
         public int PairStr { get; set; }
         public int PairHighestCard { get; set; }
         public int PairHighestSecondCard { get; set; }
+        public int PairHighestThirdCard { get; set; }
 
         public int HighcardFirst { get; set; }
         public int HighcardSecond { get; set; }

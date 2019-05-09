@@ -9,7 +9,7 @@ namespace PokerWebApplication.Game
     {
 
 
-        public static PokerHand setPokerHand(List<Card> playerHand, List<Card> gameHand) 
+        public static PokerHand SetPokerHand(List<Card> playerHand, List<Card> gameHand) 
         {
             int gameHandSize = gameHand.Count;
             PokerHand ph = new PokerHand();
@@ -277,7 +277,9 @@ namespace PokerWebApplication.Game
 
             //check for flush
             bool flushFound = false;
-            int flushhighcard = 0;
+            int[] flushhighcards = new int[5];
+            string suit = "";
+
             int flushLength = 0;
 
 
@@ -304,7 +306,12 @@ namespace PokerWebApplication.Game
             if (color_hearts.Count >= 5)
             {
                 flushFound = true;
-                flushhighcard = color_hearts[4].Rank;
+                suit = "hearts";
+                for(int i= 0;i <5; i++)
+                {
+                    flushhighcards[i] = color_hearts[4-i].Rank;
+                }
+               
             }
             else
             {
@@ -317,7 +324,11 @@ namespace PokerWebApplication.Game
             if (color_diamonds.Count >= 5)
             {
                 flushFound = true;
-                flushhighcard = color_diamonds[4].Rank;
+                suit = "diamonds";
+                for (int i = 0; i < 5; i++)
+                {
+                    flushhighcards[i] = color_diamonds[4 - i].Rank;
+                }
             }
             else
             {
@@ -330,7 +341,11 @@ namespace PokerWebApplication.Game
             if (color_clubs.Count >= 5)
             {
                 flushFound = true;
-                flushhighcard = color_clubs[4].Rank;
+                suit = "clubs";
+                for (int i = 0; i < 5; i++)
+                {
+                    flushhighcards[i] = color_clubs[4 - i].Rank;
+                }
             }
             else
             {
@@ -343,7 +358,11 @@ namespace PokerWebApplication.Game
             if (color_spades.Count >= 5)
             {
                 flushFound = true;
-                flushhighcard = color_spades[4].Rank;
+                suit = "spades";
+                for (int i = 0; i < 5; i++)
+                {
+                    flushhighcards[i] = color_spades[4 - i].Rank;
+                }
             }
             else
             {
@@ -356,7 +375,12 @@ namespace PokerWebApplication.Game
             if (flushFound)
             {
                 ph.Flush = true;
-                ph.FlushHighest = flushhighcard;
+                ph.FlushSuit = suit;
+                ph.FlushHighest = flushhighcards[0];
+                ph.FlushSecondHighest = flushhighcards[1];
+                ph.FlushThirdHighest = flushhighcards[2];
+                ph.FlushFourthHighest = flushhighcards[3];
+                ph.FlushFifthHighest = flushhighcards[4];
             }
 
             ph.FlushLength = flushLength;
@@ -525,6 +549,7 @@ namespace PokerWebApplication.Game
             int pairStr = 0;
             int PairHigh = 0;
             int pairsecondheigh = 0;
+            int pairthirdhigh = 0;
 
             int pairfirstIndex = 0;
             int PairLastIndex = 1;
@@ -545,12 +570,21 @@ namespace PokerWebApplication.Game
                     pairStr = sortedHand[PairLastIndex].Rank;
                     Pairfound = true;
 
-                    if (PairLastIndex <= sortedHand.Count - 3)
+                    if (PairLastIndex <= sortedHand.Count - 4)
                     {
                         PairHigh = sortedHand[sortedHand.Count - 1].Rank;
                         pairsecondheigh = sortedHand[sortedHand.Count - 2].Rank;
+                        pairthirdhigh = sortedHand[sortedHand.Count - 3].Rank;
                     }
 
+
+                    if (PairLastIndex == sortedHand.Count - 3)
+                    {
+                        PairHigh = sortedHand[sortedHand.Count - 1].Rank;
+                        pairsecondheigh = sortedHand[sortedHand.Count - 2].Rank;
+                        pairthirdhigh = sortedHand[sortedHand.Count - 5].Rank;
+
+                    }
 
                     if (PairLastIndex == sortedHand.Count - 2)
                     {
@@ -558,6 +592,7 @@ namespace PokerWebApplication.Game
 
                         
                         pairsecondheigh = sortedHand[sortedHand.Count - 4].Rank;
+                        pairthirdhigh = sortedHand[sortedHand.Count - 5].Rank;
                     }
 
 
@@ -566,6 +601,7 @@ namespace PokerWebApplication.Game
                         PairHigh = sortedHand[sortedHand.Count - 3].Rank;
 
                         pairsecondheigh = sortedHand[sortedHand.Count - 4].Rank;
+                        pairthirdhigh = sortedHand[sortedHand.Count - 5].Rank;
 
                     }
 
@@ -580,6 +616,7 @@ namespace PokerWebApplication.Game
                 ph.PairStr = pairStr;
                 ph.PairHighestCard = PairHigh;
                 ph.PairHighestSecondCard = pairsecondheigh;
+                ph.PairHighestThirdCard = pairthirdhigh;
             }
 
 
@@ -603,62 +640,315 @@ namespace PokerWebApplication.Game
 
             if (ph.StraightFlush)
             {
-                result += "a Straight Flush";
+                result += GetRankName(ph.StraightFlushBigest,false)+ "-high, Straight Flush";
                 return result;
             }
 
             if (ph.Poker)
             {
-                result += "a Poker";
+                result += "Quads of "+ GetRankName(ph.PokerStrength, true);
                 return result;
             }
 
             if (ph.FullHouse)
             {
-                result += "a Full-House";
+                result += "a Full-House, "+ GetRankName(ph.FullHouseThreeStr, true)+" over "+ GetRankName(ph.FullHouseTwoStr, true);
                 return result;
             }
 
             if (ph.Flush)
             {
-                result += "a Flush";
+                result += GetRankName(ph.FlushHighest, false)+"-high Flush";
                 return result;
             }
 
             if (ph.Straight)
             {
-                result += "a Straight";
+                result += GetRankName(ph.StraightHighest, false)+ "-high Straight";
                 return result;
             }
 
             if (ph.ThreeOfaKind)
             {
-                result += "Three of a kind";
+                result += "Three of a kind "+ GetRankName(ph.ThreeOfaKindHighest, true);
                 return result;
             }
 
             if (ph.TwoPair)
             {
-                result += "Two Pair";
+                result += "Pair of "+ GetRankName(ph.PairOneStr, true)+" and "+ GetRankName(ph.PairTwoStr, true);
                 return result;
             }
 
             if (ph.Pair)
             {
-                result += "a Pair";
+                result += "a Pair of " + GetRankName(ph.PairStr,true);
                 return result;
             }
             else
             {
-                result += "Highcards";
+                result += "Highcard "+ GetRankName(ph.HighcardFirst, false);
                 return result;
             }
 
             
         }
 
+        private static string GetRankName(int rank, bool isPlural)  {
+            string rankName;
+            string[] rankNames = { "two", "three", "four", "five", "six", "seven", "eight",
+            "nine", "ten", "jack", "queen", "king", "ace"};
+
+            rankName = rankNames[rank - 2];
+            if(isPlural)
+            {
+                if(rank == 6)
+                {
+                    rankName += "es";
+                } else
+                {
+                    rankName += "s";
+
+                }
+
+            }
+
+            return rankName;
+        }
+
+        public static List<bool> getHighlightedCards(List<Card> playerHand, List<Card> gameHand, PokerHand ph)
+        {
+            List<bool> result = new List<bool>();
+            List<int> indicies = new List<int>();
+
+            for (int i = 0; i <7; i++)
+            {
+                result.Add(false);
+                indicies.Add(i);
+            }
+
+            List<Card> allHand = new List<Card>();
+            for (int i = 0; i < gameHand.Count; i++)
+            {
+                allHand.Add(gameHand[i]);
+
+            }
+            allHand.Add(playerHand[0]);
+            allHand.Add(playerHand[1]);
+
+            List<int> cardstofindRank = new List<int>();
 
 
+            if(ph.StraightFlush)
+            {
+                string suit = ph.FlushSuit;
+
+                
+                for (int i = 0; i < 5; i++)
+                {
+                    cardstofindRank.Add(ph.StraightFlushBigest-i);
+                }
+
+                for (int j = 0; j < 5; j++)
+                {
+                    int index = allHand.FindIndex( card => card.Rank == cardstofindRank[j] && card.Suit.Equals(suit));
+
+                    result[indicies[index]] = true;
+                    allHand.RemoveAt(index);
+                    indicies.RemoveAt(index);
+
+                }
+                return result;
+            }
+
+            if(ph.Poker)
+            {
+                for (int i = 0; i < 4; i++)
+                {
+                    cardstofindRank.Add(ph.PokerStrength);
+                }
+                cardstofindRank.Add(ph.PokerHighestCard);
+                for (int j = 0; j < 5; j++)
+                {
+                    int index = allHand.FindIndex( card => card.Rank == cardstofindRank[j]);
+
+                    result[indicies[index]] = true;
+                    allHand.RemoveAt(index);
+                    indicies.RemoveAt(index);
+
+                }
+
+                return result;
+
+            }
+
+            if(ph.FullHouse)
+            {
+                for (int i = 0; i < 3; i++)
+                {
+                    cardstofindRank.Add(ph.FullHouseThreeStr);
+                }
+                for (int i = 0; i < 2; i++)
+                {
+                    cardstofindRank.Add(ph.FullHouseTwoStr);
+                }
+                for (int j = 0; j < 5; j++)
+                {
+                    int index = allHand.FindIndex( card => card.Rank == cardstofindRank[j]);
+
+                    result[indicies[index]] = true;
+                    allHand.RemoveAt(index);
+                    indicies.RemoveAt(index);
+
+                }
+
+                return result;
+
+
+            }
+
+
+            if(ph.Flush)
+            {
+                string suit = ph.FlushSuit;
+                cardstofindRank.Add(ph.FlushHighest);
+                cardstofindRank.Add(ph.FlushSecondHighest);
+                cardstofindRank.Add(ph.FlushThirdHighest);
+                cardstofindRank.Add(ph.FlushFourthHighest);
+                cardstofindRank.Add(ph.FlushFifthHighest);
+
+
+                for (int j = 0; j < 5; j++)
+                {
+                    int index = allHand.FindIndex( card => card.Rank == cardstofindRank[j] && card.Suit.Equals(suit));
+
+                    result[indicies[index]] = true;
+                    allHand.RemoveAt(index);
+                    indicies.RemoveAt(index);
+
+                }
+                return result;
+
+            }
+
+            if(ph.Straight)
+            {
+                for (int i = 0; i < 5; i++)
+                {
+                    cardstofindRank.Add(ph.StraightHighest - i);
+                }
+
+                for (int j = 0; j < 5; j++)
+                {
+                    int index = allHand.FindIndex( card => card.Rank == cardstofindRank[j]);
+
+                    result[indicies[index]] = true;
+                    allHand.RemoveAt(index);
+                    indicies.RemoveAt(index);
+
+                }
+                return result;
+
+            }
+
+
+            if(ph.ThreeOfaKind)
+            {
+                for (int i = 0; i < 3; i++)
+                {
+                    cardstofindRank.Add(ph.ThreeOfaKindHighest);
+                }
+                cardstofindRank.Add(ph.ThreeOfaKindHighestCard);
+                cardstofindRank.Add(ph.ThreeOfaKindSecondHighestCard);
+
+                for (int j = 0; j < 5; j++)
+                {
+                    int index = allHand.FindIndex( card => card.Rank == cardstofindRank[j]);
+
+                    result[indicies[index]] = true;
+                    allHand.RemoveAt(index);
+                    indicies.RemoveAt(index);
+
+                }
+                return result;
+
+
+            }
+
+            if (ph.TwoPair)
+            {
+                for (int i = 0; i < 2; i++)
+                {
+                    cardstofindRank.Add(ph.PairOneStr);
+                }
+                for (int i = 0; i < 2; i++)
+                {
+                    cardstofindRank.Add(ph.PairTwoStr);
+                }
+               
+                cardstofindRank.Add(ph.TwoPairHighestCard);
+
+                for (int j = 0; j < 5; j++)
+                {
+                    int index = allHand.FindIndex( card => card.Rank == cardstofindRank[j]);
+
+                    result[indicies[index]] = true;
+                    allHand.RemoveAt(index);
+                    indicies.RemoveAt(index);
+
+                }
+                return result;
+
+
+            }
+
+
+
+            if (ph.Pair)
+            {
+                cardstofindRank.Add(ph.PairStr);
+                cardstofindRank.Add(ph.PairStr);
+                cardstofindRank.Add(ph.PairHighestCard);
+                cardstofindRank.Add(ph.PairHighestSecondCard);
+                cardstofindRank.Add(ph.PairHighestThirdCard);
+
+                for (int j = 0; j < 5; j++)
+                {
+                    int index = allHand.FindIndex( card => card.Rank == cardstofindRank[j]);
+
+                    result[indicies[index]] = true;
+                    allHand.RemoveAt(index);
+                    indicies.RemoveAt(index);
+
+                }
+
+                return result;
+            } else
+            {
+                cardstofindRank.Add(ph.HighcardFirst);
+                cardstofindRank.Add(ph.HighcardSecond);
+                cardstofindRank.Add(ph.HighcardThird);
+                cardstofindRank.Add(ph.HighcardFourth);
+                cardstofindRank.Add(ph.HighcardFifth);
+
+                for (int j = 0; j < 5; j++)
+                {
+                    int index = allHand.FindIndex( card => card.Rank == cardstofindRank[j]);
+
+                    result[indicies[index]] = true;
+                    allHand.RemoveAt(index);
+                    indicies.RemoveAt(index);
+
+                }
+
+                return result;
+
+
+
+            }
+
+
+        }
 
 
         public  int Compare(Player firstPlayer, Player secondPlayer )
@@ -763,8 +1053,52 @@ namespace PokerWebApplication.Game
                     return -1;
 
                 if (firsthand.FlushHighest == secondhand.FlushHighest)
-                    return 0;
+                {
+                    if (firsthand.FlushSecondHighest > secondhand.FlushSecondHighest)
+                        return 1;
+
+                    if (firsthand.FlushSecondHighest < secondhand.FlushSecondHighest)
+                        return -1;
+
+                    if (firsthand.FlushSecondHighest == secondhand.FlushSecondHighest)
+                    {
+                        if (firsthand.FlushThirdHighest > secondhand.FlushThirdHighest)
+                            return 1;
+
+                        if (firsthand.FlushThirdHighest < secondhand.FlushThirdHighest)
+                            return -1;
+
+                        if (firsthand.FlushThirdHighest == secondhand.FlushThirdHighest)
+                        {
+
+                            if (firsthand.FlushFourthHighest > secondhand.FlushFourthHighest)
+                                return 1;
+
+                            if (firsthand.FlushFourthHighest < secondhand.FlushFourthHighest)
+                                return -1;
+
+                            if(firsthand.FlushFourthHighest ==  secondhand.FlushFourthHighest)
+                            {
+
+                                if (firsthand.FlushFifthHighest > secondhand.FlushFifthHighest)
+                                    return 1;
+
+                                if (firsthand.FlushFifthHighest < secondhand.FlushFifthHighest)
+                                    return -1;
+
+                                if (firsthand.FlushFifthHighest == secondhand.FlushFifthHighest)
+                                    return 0;
+
+                            }
+
+                        }
+                    }
+                }
+                    
             }
+
+
+
 
             /* comapre straight*/
             if (firsthand.Straight && secondhand.Straight == false)
@@ -897,7 +1231,19 @@ namespace PokerWebApplication.Game
                             return -1;
 
                         if (firsthand.PairHighestSecondCard == secondhand.PairHighestSecondCard)
-                            return 0;
+                        {
+
+                            if (firsthand.PairHighestThirdCard > secondhand.PairHighestThirdCard)
+                                return 1;
+
+                            if (firsthand.PairHighestThirdCard < secondhand.PairHighestThirdCard)
+                                return -1;
+
+                            if (firsthand.PairHighestThirdCard == secondhand.PairHighestThirdCard)
+                                return 0;
+
+                        }
+                            
 
                     }
                 }

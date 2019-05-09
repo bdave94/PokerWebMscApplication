@@ -42,6 +42,8 @@ namespace PokerWebApplication.Game
 
         public List<Player> AllInPlayers { get; } = new List<Player>();
 
+        
+
         public List<ScoreInfo> ScoreBoard { get; } = new List<ScoreInfo>();
 
        
@@ -64,18 +66,28 @@ namespace PokerWebApplication.Game
 
         private bool askFirstPlayerInPhase;
 
+       
+
         public bool ReadyForNextRound { get; private set; }
 
         public bool ReadyForNextPhase { get; private set; }
         public bool GameEnded { get; private set; }
+        public List<bool> TableHandHighlight { get; private set; }
 
+        public string VictoryText { get; set; }
 
-        public GameManager(List<Player> PlayerList,  int tableID)
+        public GameManager()
         {
            
 
-            players = PlayerList;
            
+        }
+
+        public void Init(List<Player> PlayerList, int tableID)
+        {
+           
+            players = PlayerList;
+
             tableId = tableID;
 
             DeactivateAllIndicatorRequired = false;
@@ -90,8 +102,18 @@ namespace PokerWebApplication.Game
             GamePhase = 0;
 
             BlindValue = 40;
+
+            TableHandHighlight = new List<bool>();
+
+            VictoryText = "";
         }
 
+        public void Clear()
+        {
+            players.Clear();
+            TableHand.Clear();
+            ScoreBoard.Clear();
+        }
 
         public void StartNextRound()
         {
@@ -104,8 +126,18 @@ namespace PokerWebApplication.Game
 
             d.ResetDeck();
             dealerNum += 1;
+            VictoryText = "";
 
-          
+            for (int i = 0; i < players.Count; i++)
+            {
+                if(players[i].Action.Equals("giveup"))
+                {
+                    PlayerKonckedOut.Add(players[i].Name);
+                    players.Remove(players[i]);
+                    i -= 1;
+                }
+
+            }
 
             ActivePlayers.Clear();
             AllInPlayers.Clear();
@@ -121,7 +153,8 @@ namespace PokerWebApplication.Game
                 p.RaiseValue = 0;
                 p.AllInValue = 0;
                 p.PotMoney = 0;
-
+                p.CardOneHighlight = false;
+                p.CardTwoHighlight = false;
 
 
 
@@ -171,6 +204,12 @@ namespace PokerWebApplication.Game
 
             //clear table hand
             TableHand.Clear();
+
+            TableHandHighlight.Clear();
+            for(int i =0; i < 5; i++)
+            {
+                TableHandHighlight.Add(false);
+            }
         }
 
 
@@ -542,7 +581,7 @@ namespace PokerWebApplication.Game
 
         }
 
-      
+        
 
         public void ProcessPlayerAction(string playerAction)
         {
@@ -593,7 +632,7 @@ namespace PokerWebApplication.Game
 
             }
 
-            if (playerAction.Equals("Folded"))
+            if (playerAction.Equals("Folded") || playerAction.Equals("giveup"))
             {
 
                 if (CurrentPlayerPos == lastPlayerActionPosition && 
@@ -609,7 +648,14 @@ namespace PokerWebApplication.Game
 
                 }
 
-                ActivePlayers[CurrentPlayerPos].Action = "Fold";
+                if(playerAction.Equals("giveup"))
+                {
+                    ActivePlayers[CurrentPlayerPos].Action = "giveup";
+                } else
+                {
+                    ActivePlayers[CurrentPlayerPos].Action = "Fold";
+                }
+                
 
                 ActivePlayers[CurrentPlayerPos].PlayersTurn = false;
                 Player p = ActivePlayers.Find(player => player.Name == CurrentPlayer);
@@ -826,8 +872,11 @@ namespace PokerWebApplication.Game
             for(int i=0; i <  ActivePlayers.Count; i++)
             {
                 Player p = ActivePlayers[i];
-
-                p.Action = "";
+                if(p.Action.Equals("giveup") == false)
+                {
+                    p.Action = "";
+                }
+               
                 p.RaiseValue = 0;
 
                 if(p.IsAllIn)
@@ -898,37 +947,62 @@ namespace PokerWebApplication.Game
             List<Player> playersStayedIn = new List<Player>();
             List<Player> playersWithChipsLeft = new List<Player>();
 
-            foreach (Player p in ActivePlayers)
+            if(ActivePlayers.Count == 1)
             {
-               
-                p.PublicHand[0].Suit = p.Hand[0].Suit;
-                p.PublicHand[0].Rank = p.Hand[0].Rank;
+                playersStayedIn.Add(ActivePlayers[0]);
 
-                p.PublicHand[1].Suit = p.Hand[1].Suit;
-                p.PublicHand[1].Rank = p.Hand[1].Rank;
+                ActivePlayers[0].PlayersTurn = false;
+            } else
+            {
+                foreach (Player p in ActivePlayers)
+                {
 
-                p.pHand = PokerRules.setPokerHand(p.Hand, TableHand);
+                    p.PublicHand[0].Suit = p.Hand[0].Suit;
+                    p.PublicHand[0].Rank = p.Hand[0].Rank;
 
-                playersStayedIn.Add(p);
+                    p.PublicHand[1].Suit = p.Hand[1].Suit;
+                    p.PublicHand[1].Rank = p.Hand[1].Rank;
 
-                p.PlayersTurn = false;
+                    p.pHand = PokerRules.SetPokerHand(p.Hand, TableHand);
+
+                    playersStayedIn.Add(p);
+
+                    p.PlayersTurn = false;
+
+                }
 
             }
 
-            foreach (Player p in AllInPlayers)
+
+            if (ActivePlayers.Count == 0 && AllInPlayers.Count == 1)
             {
-                p.PublicHand[0].Suit = p.Hand[0].Suit;
-                p.PublicHand[0].Rank = p.Hand[0].Rank;
+                playersStayedIn.Add(AllInPlayers[0]);
 
-                p.PublicHand[1].Suit = p.Hand[1].Suit;
-                p.PublicHand[1].Rank = p.Hand[1].Rank;
-                p.pHand = PokerRules.setPokerHand(p.Hand, TableHand);
+                AllInPlayers[0].PlayersTurn = false;
+            }
+            else
+            {
+                foreach (Player p in AllInPlayers)
+                {
+                    p.PublicHand[0].Suit = p.Hand[0].Suit;
+                    p.PublicHand[0].Rank = p.Hand[0].Rank;
 
-                playersStayedIn.Add(p);
+                    p.PublicHand[1].Suit = p.Hand[1].Suit;
+                    p.PublicHand[1].Rank = p.Hand[1].Rank;
+                    p.pHand = PokerRules.SetPokerHand(p.Hand, TableHand);
+
+                    playersStayedIn.Add(p);
+                }
             }
 
 
-            playersStayedIn.Sort(new PokerRules());
+            if(ActivePlayers.Count == 1  || (ActivePlayers.Count == 0 && AllInPlayers.Count==1) == false)
+            {
+                playersStayedIn.Sort(new PokerRules());
+            }               
+
+
+          
 
             if(playersStayedIn[playersStayedIn.Count-1].IsAllIn == false)
             {
@@ -957,20 +1031,43 @@ namespace PokerWebApplication.Game
 
             playersStayedIn[playersStayedIn.Count - 1].Action = "Winner";
 
+            // highlight the round winner at the poker table
             playersStayedIn[playersStayedIn.Count - 1].PlayersTurn = true;
 
-            PokerHand ph = playersStayedIn[playersStayedIn.Count - 1].pHand;
-
-            string result = playersStayedIn[playersStayedIn.Count - 1].Name +" wins with " +
+            string result = playersStayedIn[playersStayedIn.Count - 1].Name + " wins";
+            if ((ActivePlayers.Count == 1 || (ActivePlayers.Count == 0 && AllInPlayers.Count == 1)) == false)
+            {
+                PokerHand ph = playersStayedIn[playersStayedIn.Count - 1].pHand;
+                result += " with " +
                 PokerRules.GetPokerHandAsText(playersStayedIn[playersStayedIn.Count - 1].pHand);
 
-           
-            foreach(Player p in players)
+                VictoryText = result;
+
+                List<bool> highlightedcards = PokerRules.getHighlightedCards(playersStayedIn[playersStayedIn.Count - 1].Hand,
+                    TableHand, playersStayedIn[playersStayedIn.Count - 1].pHand);
+
+                playersStayedIn[playersStayedIn.Count - 1].CardOneHighlight = highlightedcards[5];
+                playersStayedIn[playersStayedIn.Count - 1].CardTwoHighlight = highlightedcards[6];
+                highlightedcards.RemoveRange(5, 2);
+                TableHandHighlight = highlightedcards;
+            }
+               
+
+            
+
+            List<Player> playersNotGaveUp = new List<Player>();
+            foreach (Player p in players)
             {
                 if (p.Chips > 0)
                 {
                     playersWithChipsLeft.Add(p);
                 }
+
+                if(p.Action.Equals("giveup") == false)
+                {
+                    playersNotGaveUp.Add(p);
+
+                } 
 
             }
             
@@ -978,6 +1075,14 @@ namespace PokerWebApplication.Game
             {
 
                 result += " - "+playersWithChipsLeft[0].Name + " has won the match!";
+
+                GameEnded = true;
+            }
+
+            if (playersNotGaveUp.Count == 1)
+            {
+
+                result += " - " + playersNotGaveUp[0].Name + " has won the match!";
 
                 GameEnded = true;
             }
@@ -1017,6 +1122,11 @@ namespace PokerWebApplication.Game
                     player.Chips += playerChips;
                 }
             }
+        }
+
+        public void RemovePlayer(Player p)
+        {
+            players.Remove(p);
         }
 
 
