@@ -26,7 +26,7 @@ namespace PokerWebApplication.Model
 
 
         public string Action { get; set; }
-
+        public int PotMoney { get; set; }
 
     }
 }

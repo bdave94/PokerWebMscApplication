@@ -71,6 +71,7 @@ namespace PokerWebApplication.Game
         public bool ReadyForNextRound { get; private set; }
 
         public bool ReadyForNextPhase { get; private set; }
+        public string WinnerPlayer { get; private set; }
         public bool GameEnded { get; private set; }
         public List<bool> TableHandHighlight { get; private set; }
 
@@ -106,6 +107,7 @@ namespace PokerWebApplication.Game
             TableHandHighlight = new List<bool>();
 
             VictoryText = "";
+            WinnerPlayer = "";
         }
 
         public void Clear()
@@ -113,6 +115,7 @@ namespace PokerWebApplication.Game
             players.Clear();
             TableHand.Clear();
             ScoreBoard.Clear();
+            PlayerKonckedOut.Clear();
         }
 
         public void StartNextRound()
@@ -1035,13 +1038,13 @@ namespace PokerWebApplication.Game
             playersStayedIn[playersStayedIn.Count - 1].PlayersTurn = true;
 
             string result = playersStayedIn[playersStayedIn.Count - 1].Name + " wins";
-            if ((ActivePlayers.Count == 1 || (ActivePlayers.Count == 0 && AllInPlayers.Count == 1)) == false)
+            if (ActivePlayers.Count > 1)
             {
                 PokerHand ph = playersStayedIn[playersStayedIn.Count - 1].pHand;
                 result += " with " +
                 PokerRules.GetPokerHandAsText(playersStayedIn[playersStayedIn.Count - 1].pHand);
 
-                VictoryText = result;
+                
 
                 List<bool> highlightedcards = PokerRules.getHighlightedCards(playersStayedIn[playersStayedIn.Count - 1].Hand,
                     TableHand, playersStayedIn[playersStayedIn.Count - 1].pHand);
@@ -1051,9 +1054,9 @@ namespace PokerWebApplication.Game
                 highlightedcards.RemoveRange(5, 2);
                 TableHandHighlight = highlightedcards;
             }
-               
 
-            
+            VictoryText = result;
+
 
             List<Player> playersNotGaveUp = new List<Player>();
             foreach (Player p in players)
@@ -1075,7 +1078,8 @@ namespace PokerWebApplication.Game
             {
 
                 result += " - "+playersWithChipsLeft[0].Name + " has won the match!";
-
+                VictoryText = playersWithChipsLeft[0].Name + " has won the match!";
+                WinnerPlayer = playersWithChipsLeft[0].Name;
                 GameEnded = true;
             }
 
@@ -1083,7 +1087,8 @@ namespace PokerWebApplication.Game
             {
 
                 result += " - " + playersNotGaveUp[0].Name + " has won the match!";
-
+                VictoryText = playersNotGaveUp[0].Name + " has won the match!";
+                WinnerPlayer = playersNotGaveUp[0].Name;
                 GameEnded = true;
             }
 
